@@ -26,7 +26,7 @@ export class SellBotService {
 	constructor(private ocean: Ocean, private wallet: Wallet) {}
 
 	// @Cron('* * * * *')
-	@Interval(30000)
+	@Interval(60000)
 	async sellAction() {
 		if (this.running || !this.latestTxIdConfirmed) return;
 		this.running = true;
@@ -45,11 +45,18 @@ export class SellBotService {
 			if (!toToken) throw 'To token not found';
 
 			const bestPath = await this.ocean.poolpairs.getBestPath(fromToken.id, toToken.id);
+			const bestPoolsName: string[] = bestPath.bestPath.map((p) => p.symbol);
 			const bestPools: PoolId[] = bestPath.bestPath.map((p) => {
 				return {
 					id: parseInt(p.poolPairId),
 				};
 			});
+
+			this.logger.log(
+				`Swapping through ${bestPoolsName.join(' | ')} with an avg. of ${
+					bestPath.estimatedReturnLessDexFees
+				} ${toTokenName}/${fromTokenName}`
+			);
 
 			const fromScript = await this.wallet.active.getScript();
 			const toScript = await this.wallet.active.getScript();
