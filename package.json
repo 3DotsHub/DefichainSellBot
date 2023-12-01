@@ -20,9 +20,16 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@defichain/jellyfish-network": "^4.0.1",
+    "@defichain/jellyfish-wallet": "^4.0.1",
+    "@defichain/jellyfish-wallet-mnemonic": "^4.0.1",
+    "@defichain/whale-api-client": "^4.0.1",
+    "@defichain/whale-api-wallet": "^4.0.1",
     "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.1.1",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/schedule": "^4.0.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1"
   },

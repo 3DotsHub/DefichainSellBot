@@ -1,0 +1,27 @@
+import { Injectable } from '@nestjs/common';
+import { MainNet } from '@defichain/jellyfish-network';
+import { JellyfishWallet } from '@defichain/jellyfish-wallet';
+import { WhaleWalletAccountProvider, WhaleWalletAccount } from '@defichain/whale-api-wallet';
+import { MnemonicHdNodeProvider, MnemonicHdNode } from '@defichain/jellyfish-wallet-mnemonic';
+import { Ocean } from './ocean.api.service';
+
+const seed: string[] = require('../../.seed.js');
+
+const Bip32Options = {
+	bip32: {
+		public: MainNet.bip32.publicPrefix,
+		private: MainNet.bip32.privatePrefix,
+	},
+	wif: MainNet.wifPrefix,
+};
+
+@Injectable()
+export class Wallet extends JellyfishWallet<WhaleWalletAccount, MnemonicHdNode> {
+	public readonly walletIndex: number = 0;
+	public readonly active: WhaleWalletAccount;
+
+	constructor(private ocean: Ocean) {
+		super(MnemonicHdNodeProvider.fromWords(seed, Bip32Options), new WhaleWalletAccountProvider(ocean, MainNet));
+		this.active = this.get(this.walletIndex);
+	}
+}
