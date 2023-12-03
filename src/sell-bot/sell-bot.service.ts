@@ -29,6 +29,12 @@ export class SellBotService {
 
 	constructor(private ocean: Ocean, private wallet: Wallet, private sellBotBestPathService: SellBotBestPathService) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
+		this.showAddr();
+	}
+
+	// show bot address
+	async showAddr() {
+		this.logger.log(`######## You are using >>> ${await this.wallet.active.getAddress()} <<< ########`);
 	}
 
 	// @Cron(cronCommand)

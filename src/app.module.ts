@@ -1,5 +1,4 @@
 // CORE IMPORTS
-require('dotenv').config();
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 
