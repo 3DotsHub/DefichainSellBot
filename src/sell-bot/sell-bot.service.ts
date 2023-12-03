@@ -16,7 +16,7 @@ const fromTokenName: string = process.env.FROM_TOKEN_NAME;
 const fromTokenAmount: number = parseFloat(process.env.FROM_TOKEN_AMOUNT);
 const toTokenName: string = process.env.TO_TOKEN_NAME;
 const toTokenAddress: string = process.env.TO_TOKEN_ADDRESS;
-const maxPrice: BigNumber = new BigNumber(process.env.MAX_PRICE);
+const minPrice: BigNumber = new BigNumber(process.env.MIN_PRICE);
 const INTERVALSEC: number = parseInt(process.env.INTERVALSEC);
 
 @Injectable()
@@ -34,11 +34,17 @@ export class SellBotService {
 	// @Cron(cronCommand)
 	@Interval(INTERVALSEC * 1000)
 	async sellAction() {
-		if (!fromTokenName || !fromTokenAmount || !toTokenName || !toTokenAddress || !maxPrice)
+		if (!fromTokenName || !fromTokenAmount || !toTokenName || !toTokenAddress || !minPrice)
 			throw new Error('Missing params, see .env.example');
 
 		if (this.running || !this.latestTxIdConfirmed) return;
 		this.running = true;
+
+		this.logger.log(
+			`Running: ${fromTokenAmount} ${fromTokenName} to ${toTokenName} with min. ${minPrice.toFixed(
+				8
+			)} ${toTokenName}/${fromTokenName}`
+		);
 
 		try {
 			const addr: string = await this.wallet.active.getAddress();
@@ -62,20 +68,21 @@ export class SellBotService {
 			});
 
 			this.logger.log(
-				`Swapping through ${bestPoolsName.join(' | ')} with an avg. of ${
+				`BestPath: ${bestPoolsName.join(' | ')} with an avg. of ${
 					bestPath.bestPriceResult.priceRatio
 				} ${toTokenName}/${fromTokenName}`
 			);
 
 			const fromScript = await this.wallet.active.getScript();
 			const toScript = fromAddress(toTokenAddress, 'mainnet').script;
+			const maxPriceString = new BigNumber('1').dividedBy(minPrice).toFixed(8);
 			const poolSwapData: PoolSwap = {
 				fromScript: fromScript,
 				fromTokenId: parseInt(fromToken.id),
 				fromAmount: new BigNumber(fromTokenAmount),
 				toScript: toScript,
 				toTokenId: parseInt(toToken.id),
-				maxPrice: maxPrice,
+				maxPrice: new BigNumber(maxPriceString),
 			};
 
 			// create SegWit Tx
@@ -85,11 +92,12 @@ export class SellBotService {
 
 			// broadcasting Tx
 			const txHex: string = new CTransactionSegWit(txSegWit).toHex();
+			const test = await this.ocean.rawtx.test({ hex: txHex });
 			this.latestTxId = await this.ocean.rawtx.send({ hex: txHex });
 			this.latestTxIdConfirmed = false;
 
 			// show updated
-			this.logger.log(`Sell action broadcasted: ${this.latestTxId}`);
+			this.logger.log(`Transaction broadcasted: ${this.latestTxId}`);
 		} catch (error) {
 			this.logger.error(error);
 			this.running = false;
@@ -103,19 +111,24 @@ export class SellBotService {
 		if (this.scanning || !this.latestTxId || this.latestTxIdConfirmed) return;
 		this.scanning = true;
 
-		const addr: string = await this.wallet.active.getAddress();
-		const txs: ApiPagedResponse<AddressHistory> = await this.ocean.address.listAccountHistory(addr, 3);
-		if (txs.length === 0) return;
+		try {
+			const addr: string = await this.wallet.active.getAddress();
+			const txs: ApiPagedResponse<AddressHistory> = await this.ocean.address.listAccountHistory(addr, 3);
+			if (txs.length === 0) return;
 
-		const foundTx = txs.find((tx) => tx.txid === this.latestTxId);
+			const foundTx = txs.find((tx) => tx.txid === this.latestTxId);
 
-		if (foundTx) {
-			const avg = (-parseFloat(foundTx.amounts[0].split('@')[0]) / parseFloat(foundTx.amounts[1].split('@')[0])).toFixed(8);
-			this.logger.log(
-				`Swapped ${foundTx.amounts[1]} to ${foundTx.amounts[0]} for avg. ${avg} 
-				${toTokenName}/${fromTokenName} at block ${foundTx.block.height}`
-			);
-			this.latestTxIdConfirmed = true;
+			if (foundTx) {
+				const avg = (-parseFloat(foundTx.amounts[0].split('@')[0]) / parseFloat(foundTx.amounts[1].split('@')[0])).toFixed(8);
+				this.logger.log(
+					`Swapped: ${foundTx.amounts[1]} to ${foundTx.amounts[0]} for avg. ${avg} 
+					${toTokenName}/${fromTokenName} at block ${foundTx.block.height}`
+				);
+				this.latestTxIdConfirmed = true;
+			}
+		} catch (error) {
+			this.logger.error(error);
+			this.running = false;
 		}
 
 		this.scanning = false;
