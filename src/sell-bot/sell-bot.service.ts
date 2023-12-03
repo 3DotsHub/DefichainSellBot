@@ -125,6 +125,7 @@ export class SellBotService {
 			const foundTx = txs.find((tx) => tx.txid === this.latestTxId);
 
 			if (foundTx) {
+				if (foundTx.amounts.length <= 1) throw 'Ocean api does not display multiply amounts';
 				const avg = (-parseFloat(foundTx.amounts[0].split('@')[0]) / parseFloat(foundTx.amounts[1].split('@')[0])).toFixed(8);
 				this.logger.log(
 					`Swapped: ${foundTx.amounts[1]} to ${foundTx.amounts[0]} for avg. ${avg} 
@@ -134,7 +135,7 @@ export class SellBotService {
 			}
 		} catch (error) {
 			this.logger.error(error);
-			this.running = false;
+			this.scanning = false;
 		}
 
 		this.scanning = false;
