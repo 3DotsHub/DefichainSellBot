@@ -5,7 +5,7 @@ import { WhaleWalletAccountProvider, WhaleWalletAccount } from '@defichain/whale
 import { MnemonicHdNodeProvider, MnemonicHdNode } from '@defichain/jellyfish-wallet-mnemonic';
 import { Ocean } from './ocean.api.service';
 
-const seed: string[] = require('../../.seed.js');
+const seed: string[] = JSON.parse(process.env.SEED);
 
 const Bip32Options = {
 	bip32: {
@@ -21,6 +21,7 @@ export class Wallet extends JellyfishWallet<WhaleWalletAccount, MnemonicHdNode> 
 	public readonly active: WhaleWalletAccount;
 
 	constructor(private ocean: Ocean) {
+		if (!seed) throw new Error('Seed not available or invalid. Stringifyed string[] type needed.');
 		super(MnemonicHdNodeProvider.fromWords(seed, Bip32Options), new WhaleWalletAccountProvider(ocean, MainNet));
 		this.active = this.get(this.walletIndex);
 	}

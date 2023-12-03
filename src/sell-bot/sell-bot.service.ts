@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
 import { Ocean } from 'src/ocean/ocean.api.service';
 import { Wallet } from 'src/ocean/ocean.wallet.service';
+import { fromAddress } from '@defichain/jellyfish-address';
 import { ApiPagedResponse } from '@defichain/whale-api-client';
 import { AddressUnspent, AddressToken, AddressHistory } from '@defichain/whale-api-client/dist/api/address';
 import { PoolId, PoolSwap } from '@defichain/jellyfish-transaction/dist/script/dftx/dftx_pool';
@@ -10,10 +11,12 @@ import { BigNumber } from 'bignumber.js';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
-const fromTokenName: string = 'DUSD';
-const fromTokenAmount: number = 0.001;
-const toTokenName: string = 'USDT';
-const maxPrice: BigNumber = new BigNumber('9223372036854775807');
+const fromTokenName: string = process.env.FROM_TOKEN_NAME;
+const fromTokenAmount: number = parseFloat(process.env.FROM_TOKEN_AMOUNT);
+const toTokenName: string = process.env.TO_TOKEN_NAME;
+const toTokenAddress: string = process.env.TO_TOKEN_ADDRESS;
+const maxPrice: BigNumber = new BigNumber(process.env.MAX_PRICE);
+const cronCommand: string = process.env.CRONCOMMAND;
 
 @Injectable()
 export class SellBotService {
@@ -23,11 +26,16 @@ export class SellBotService {
 	private latestTxIdConfirmed: boolean = true;
 	private latestTxId: string;
 
-	constructor(private ocean: Ocean, private wallet: Wallet) {}
+	constructor(private ocean: Ocean, private wallet: Wallet) {
+		if (!cronCommand) throw new Error('Missing cron command in .env, see .env.example');
+	}
 
-	// @Cron('* * * * *')
-	@Interval(60000)
+	// @Cron(cronCommand)
+	@Interval(2000)
 	async sellAction() {
+		if (!fromTokenName || !fromTokenAmount || !toTokenName || !toTokenAddress || !maxPrice)
+			throw new Error('Missing params, see .env.example');
+
 		if (this.running || !this.latestTxIdConfirmed) return;
 		this.running = true;
 
@@ -59,7 +67,7 @@ export class SellBotService {
 			);
 
 			const fromScript = await this.wallet.active.getScript();
-			const toScript = await this.wallet.active.getScript();
+			const toScript = fromAddress(toTokenAddress, 'mainnet').script;
 			const poolSwapData: PoolSwap = {
 				fromScript: fromScript,
 				fromTokenId: parseInt(fromToken.id),
@@ -102,7 +110,10 @@ export class SellBotService {
 
 		if (foundTx) {
 			const avg = (-parseFloat(foundTx.amounts[0].split('@')[0]) / parseFloat(foundTx.amounts[1].split('@')[0])).toFixed(8);
-			this.logger.log(`Swapped ${foundTx.amounts[1]} to ${foundTx.amounts[0]} for avg. ${avg} at block ${foundTx.block.height}`);
+			this.logger.log(
+				`Swapped ${foundTx.amounts[1]} to ${foundTx.amounts[0]} for avg. ${avg} 
+				${toTokenName}/${fromTokenName} at block ${foundTx.block.height}`
+			);
 			this.latestTxIdConfirmed = true;
 		}
 
