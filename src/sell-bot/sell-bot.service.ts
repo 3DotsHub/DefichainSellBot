@@ -8,6 +8,7 @@ import { AddressUnspent, AddressToken, AddressHistory } from '@defichain/whale-a
 import { PoolId, PoolSwap } from '@defichain/jellyfish-transaction/dist/script/dftx/dftx_pool';
 import { CTransactionSegWit, TransactionSegWit } from '@defichain/jellyfish-transaction';
 import { BigNumber } from 'bignumber.js';
+import { SellBotBestPathService } from './sell-bot.bestPath.service';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
@@ -16,7 +17,7 @@ const fromTokenAmount: number = parseFloat(process.env.FROM_TOKEN_AMOUNT);
 const toTokenName: string = process.env.TO_TOKEN_NAME;
 const toTokenAddress: string = process.env.TO_TOKEN_ADDRESS;
 const maxPrice: BigNumber = new BigNumber(process.env.MAX_PRICE);
-const cronCommand: string = process.env.CRONCOMMAND;
+const INTERVALSEC: number = parseInt(process.env.INTERVALSEC);
 
 @Injectable()
 export class SellBotService {
@@ -26,12 +27,12 @@ export class SellBotService {
 	private latestTxIdConfirmed: boolean = true;
 	private latestTxId: string;
 
-	constructor(private ocean: Ocean, private wallet: Wallet) {
-		if (!cronCommand) throw new Error('Missing cron command in .env, see .env.example');
+	constructor(private ocean: Ocean, private wallet: Wallet, private sellBotBestPathService: SellBotBestPathService) {
+		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
 	}
 
 	// @Cron(cronCommand)
-	@Interval(2000)
+	@Interval(INTERVALSEC * 1000)
 	async sellAction() {
 		if (!fromTokenName || !fromTokenAmount || !toTokenName || !toTokenAddress || !maxPrice)
 			throw new Error('Missing params, see .env.example');
@@ -52,17 +53,17 @@ export class SellBotService {
 			if (!fromToken || parseFloat(fromToken.amount) < fromTokenAmount) throw 'From token amount below threshold';
 			if (!toToken) throw 'To token not found';
 
-			const bestPath = await this.ocean.poolpairs.getBestPath(fromToken.id, toToken.id);
-			const bestPoolsName: string[] = bestPath.bestPath.map((p) => p.symbol);
-			const bestPools: PoolId[] = bestPath.bestPath.map((p) => {
+			const bestPath = await this.sellBotBestPathService.dicover(fromToken.id, toToken.id);
+			const bestPoolsName: string[] = bestPath.bestPriceResult.poolPairNames;
+			const bestPools: PoolId[] = bestPath.bestPriceResult.poolPairIds.map((p) => {
 				return {
-					id: parseInt(p.poolPairId),
+					id: parseInt(p),
 				};
 			});
 
 			this.logger.log(
 				`Swapping through ${bestPoolsName.join(' | ')} with an avg. of ${
-					bestPath.estimatedReturnLessDexFees
+					bestPath.bestPriceResult.priceRatio
 				} ${toTokenName}/${fromTokenName}`
 			);
 
