@@ -103,7 +103,7 @@ export class SellBotService {
 			this.latestTxIdConfirmed = false;
 
 			// show updated
-			this.logger.log(`Transaction broadcasted: ${this.latestTxId}`);
+			this.logger.log(`Broadcasted: ${this.latestTxId}`);
 		} catch (error) {
 			this.logger.error(error);
 			this.running = false;
@@ -112,7 +112,7 @@ export class SellBotService {
 		this.running = false;
 	}
 
-	@Interval(5000)
+	@Interval(10000)
 	async checkForBroadcastedTx() {
 		if (this.scanning || !this.latestTxId || this.latestTxIdConfirmed) return;
 		this.scanning = true;
@@ -122,16 +122,17 @@ export class SellBotService {
 			const txs: ApiPagedResponse<AddressHistory> = await this.ocean.address.listAccountHistory(addr, 3);
 			if (txs.length === 0) return;
 
-			const foundTx = txs.find((tx) => tx.txid === this.latestTxId);
+			const fromTx = txs.find((tx) => tx.txid === this.latestTxId);
 
-			if (foundTx) {
-				if (foundTx.amounts.length <= 1) throw 'Ocean api does not display multiply amounts';
-				const avg = (-parseFloat(foundTx.amounts[0].split('@')[0]) / parseFloat(foundTx.amounts[1].split('@')[0])).toFixed(8);
-				this.logger.log(
-					`Swapped: ${foundTx.amounts[1]} to ${foundTx.amounts[0]} for avg. ${avg} 
-					${toTokenName}/${fromTokenName} at block ${foundTx.block.height}`
-				);
+			if (fromTx) {
 				this.latestTxIdConfirmed = true;
+
+				const toTx = await this.ocean.address.getAccountHistory(toTokenAddress, fromTx.block.height, fromTx.txn);
+
+				const avg = (-parseFloat(toTx.amounts[0].split('@')[0]) / parseFloat(fromTx.amounts[0].split('@')[0])).toFixed(8);
+				this.logger.log(
+					`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}`
+				);
 			}
 		} catch (error) {
 			this.logger.error(error);
