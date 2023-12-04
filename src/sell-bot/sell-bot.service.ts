@@ -26,10 +26,12 @@ export class SellBotService {
 	private scanning: boolean = false;
 	private latestTxIdConfirmed: boolean = true;
 	private latestTxId: string;
+	private readonly sellActionRestartDelay: number = 10000;
 
 	constructor(private ocean: Ocean, private wallet: Wallet, private sellBotBestPathService: SellBotBestPathService) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
-		this.showAddr();
+		setTimeout(() => this.showAddr(), this.sellActionRestartDelay / 2);
+		setTimeout(() => this.sellAction(), this.sellActionRestartDelay);
 	}
 
 	// show bot address
@@ -107,6 +109,7 @@ export class SellBotService {
 		} catch (error) {
 			this.logger.error(error);
 			this.running = false;
+			setTimeout(() => this.sellAction(), this.sellActionRestartDelay);
 		}
 
 		this.running = false;
