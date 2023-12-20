@@ -37,6 +37,7 @@ export class SellBotService {
 	// show bot address
 	async showAddr() {
 		this.logger.log(`######## You are using >>> ${await this.wallet.active.getAddress()} <<< ########`);
+		this.logger.log(`######## Swapping to >>> ${toTokenAddress} <<< ########`);
 	}
 
 	// @Cron(cronCommand)
@@ -133,7 +134,7 @@ export class SellBotService {
 
 				const avg = (-parseFloat(toTx.amounts[0].split('@')[0]) / parseFloat(fromTx.amounts[0].split('@')[0])).toFixed(8);
 				this.logger.log(
-					`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}`
+					`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
 				);
 			}
 		} catch (error) {
