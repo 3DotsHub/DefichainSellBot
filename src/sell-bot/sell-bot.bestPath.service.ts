@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Ocean } from 'src/ocean/ocean.api.service';
-import { AddressToken } from '@defichain/whale-api-client/dist/api/address';
-import { BestSwapPathResult, TokenIdentifier } from '@defichain/whale-api-client/dist/api/poolpairs';
+import { TokenIdentifier } from '@defichain/whale-api-client/dist/api/poolpairs';
 
 type PriceResult = {
 	poolPairIds: string[];
@@ -23,6 +22,14 @@ export class SellBotBestPathService {
 	private readonly logger = new Logger(this.constructor.name);
 
 	constructor(private ocean: Ocean) {}
+
+	async dicoverDVM(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
+		return null;
+	}
+
+	async dicoverEVM(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
+		return null;
+	}
 
 	async dicover(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
 		const { fromToken, toToken, paths } = await this.ocean.poolpairs.getAllPaths(fromTokenId, toTokenId);

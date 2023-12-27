@@ -108,7 +108,7 @@ export class SellBotService {
 			// show updated
 			this.logger.log(`Broadcasted: ${this.latestTxId}`);
 		} catch (error) {
-			this.logger.error(error);
+			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
 			this.running = false;
 			setTimeout(() => this.sellAction(), this.restartPolicyDelay);
 		}
@@ -138,7 +138,7 @@ export class SellBotService {
 				);
 			}
 		} catch (error) {
-			this.logger.error(error);
+			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
 			this.scanning = false;
 		}
 

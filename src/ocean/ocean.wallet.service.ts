@@ -23,6 +23,10 @@ export class Wallet extends JellyfishWallet<WhaleWalletAccount, MnemonicHdNode> 
 	constructor(private ocean: Ocean) {
 		if (!seed) throw new Error('Seed not available or invalid. Stringifyed string[] type needed.');
 		super(MnemonicHdNodeProvider.fromWords(seed, Bip32Options), new WhaleWalletAccountProvider(ocean, MainNet));
-		this.active = this.get(this.walletIndex);
+		this.active = this.getWalletAccountByIdx(this.walletIndex);
+	}
+
+	getWalletAccountByIdx(idx: number): WhaleWalletAccount {
+		return this.get(idx);
 	}
 }
