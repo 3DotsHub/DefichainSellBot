@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { JsonRpcProvider } from 'ethers';
+import { selectedNetwork, dmcUrl } from './defichain.config';
 
 @Injectable()
 export class DmcProvider extends JsonRpcProvider {
 	public readonly network: string;
 
 	constructor() {
-		const _network = 'mainnet';
-		super('https://dmc.mydefichain.com/' + _network);
-		this.network = _network;
+		super(dmcUrl + selectedNetwork);
+		this.network = selectedNetwork;
 	}
 }
