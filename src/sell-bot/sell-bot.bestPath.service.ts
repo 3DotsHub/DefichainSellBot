@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Ocean } from 'src/ocean/ocean.api.service';
+import { ethers } from 'ethers';
 import { TokenIdentifier } from '@defichain/whale-api-client/dist/api/poolpairs';
+import { Ocean } from 'src/defichain/defichain.ocean.client.service';
+import { DmcProvider } from 'src/defichain/defichain.dmc.provider.service';
 
 type PriceResult = {
 	poolPairIds: string[];
@@ -21,13 +23,28 @@ type DiscoverData = {
 export class SellBotBestPathService {
 	private readonly logger = new Logger(this.constructor.name);
 
-	constructor(private ocean: Ocean) {}
+	constructor(private ocean: Ocean, private dmcProvider: DmcProvider) {}
 
 	async dicoverDVM(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
 		return null;
 	}
 
 	async dicoverEVM(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
+		const RouterV2Addr = '0x3E8C92491fc73390166BA00725B8F5BD734B8fba';
+		const tokenAddr = {
+			dusd: '0xFf0000000000000000000000000000000000000F',
+			wdfi: '0x49febbF9626B2D39aBa11C01d83Ef59b3D56d2A4',
+			btc: '0xff00000000000000000000000000000000000002',
+		};
+		const ABI = ['function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)'];
+		const amountIn = ethers.parseEther('10');
+		const path = [tokenAddr.dusd, tokenAddr.wdfi, tokenAddr.btc];
+		const router = new ethers.Contract(RouterV2Addr, ABI, this.dmcProvider);
+
+		const amounts = await router.getAmountsOut(amountIn, path);
+		const price = ethers.formatUnits(amounts.at(-1).toString(), 18);
+		console.log('price', parseFloat(price));
+
 		return null;
 	}
 

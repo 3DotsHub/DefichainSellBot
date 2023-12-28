@@ -6,11 +6,11 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 
 // MODULES IMPORTS
-import { OceanModule } from './ocean/ocean.module';
+import { DefichainModule } from './defichain/defichain.module';
 import { SellBotModule } from './sell-bot/sell-bot.module';
 
 @Module({
-	imports: [ScheduleModule.forRoot(), OceanModule, SellBotModule],
+	imports: [ScheduleModule.forRoot(), DefichainModule, SellBotModule],
 	controllers: [AppController],
 	providers: [],
 })

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
-import { Ocean } from 'src/ocean/ocean.api.service';
-import { Wallet } from 'src/ocean/ocean.wallet.service';
+import { Ocean } from 'src/defichain/defichain.ocean.client.service';
+import { Wallet } from 'src/defichain/defichain.ocean.wallet.service';
 import { fromAddress } from '@defichain/jellyfish-address';
 import { ApiPagedResponse } from '@defichain/whale-api-client';
 import { AddressUnspent, AddressToken, AddressHistory } from '@defichain/whale-api-client/dist/api/address';

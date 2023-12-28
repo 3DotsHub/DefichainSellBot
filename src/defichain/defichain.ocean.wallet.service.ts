@@ -3,7 +3,7 @@ import { MainNet } from '@defichain/jellyfish-network';
 import { JellyfishWallet } from '@defichain/jellyfish-wallet';
 import { WhaleWalletAccountProvider, WhaleWalletAccount } from '@defichain/whale-api-wallet';
 import { MnemonicHdNodeProvider, MnemonicHdNode } from '@defichain/jellyfish-wallet-mnemonic';
-import { Ocean } from './ocean.api.service';
+import { Ocean } from './defichain.ocean.client.service';
 
 const seed: string[] = JSON.parse(process.env.SEED);
 
