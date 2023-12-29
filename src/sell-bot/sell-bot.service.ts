@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
-import { Ocean } from 'src/defichain/defichain.ocean.client.service';
-import { Wallet } from 'src/defichain/defichain.ocean.wallet.service';
+import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
+import { Wallet } from 'src/defichain/services/defichain.ocean.wallet.service';
 import { fromAddress } from '@defichain/jellyfish-address';
 import { ApiPagedResponse } from '@defichain/whale-api-client';
 import { AddressUnspent, AddressToken, AddressHistory } from '@defichain/whale-api-client/dist/api/address';
@@ -9,6 +9,7 @@ import { PoolId, PoolSwap } from '@defichain/jellyfish-transaction/dist/script/d
 import { CTransactionSegWit, TransactionSegWit } from '@defichain/jellyfish-transaction';
 import { BigNumber } from 'bignumber.js';
 import { SellBotBestPathService } from './sell-bot.bestPath.service';
+import { SellBotBestPathEVMService } from './sell-bot.bestPathEvm.service';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
@@ -17,7 +18,7 @@ const fromTokenAmount: number = parseFloat(process.env.FROM_TOKEN_AMOUNT);
 const toTokenName: string = process.env.TO_TOKEN_NAME;
 const toTokenAddress: string = process.env.TO_TOKEN_ADDRESS;
 const minPrice: BigNumber = new BigNumber(process.env.MIN_PRICE);
-const INTERVALSEC: number = parseInt(process.env.INTERVALSEC);
+const INTERVALSEC: number = parseInt(process.env.INTERVALSEC || '1200');
 
 @Injectable()
 export class SellBotService {
@@ -28,15 +29,24 @@ export class SellBotService {
 	private latestTxId: string;
 	private readonly restartPolicyDelay: number = 10000;
 
-	constructor(private ocean: Ocean, private wallet: Wallet, private sellBotBestPathService: SellBotBestPathService) {
+	constructor(
+		private ocean: Ocean,
+		private wallet: Wallet,
+		private sellBotBestPathService: SellBotBestPathService,
+		private sellBotBestPathEVMService: SellBotBestPathEVMService
+	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
-		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
-		setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+		// DEV
+		// setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
+		// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+		setTimeout(() => this.showAddr(), 200);
+		setTimeout(() => this.sellAction(), 500);
 	}
 
 	// show bot address
 	async showAddr() {
-		this.logger.log(`######## You are using >>> ${await this.wallet.active.getAddress()} <<< ########`);
+		this.logger.log(`######## You are using DVM >>> ${await this.wallet.active.getAddress()} <<< ########`);
+		this.logger.log(`######## You are using EVM >>> ${await this.wallet.active.getEvmAddress()} <<< ########`);
 		this.logger.log(`######## Swapping to >>> ${toTokenAddress} <<< ########`);
 	}
 
@@ -68,6 +78,7 @@ export class SellBotService {
 			if (!fromToken || parseFloat(fromToken.amount) < fromTokenAmount) throw 'From token amount below threshold';
 			if (!toToken) throw 'To token not found';
 
+			// DVM
 			const bestPath = await this.sellBotBestPathService.dicover(fromToken.id, toToken.id);
 			const bestPoolsName: string[] = bestPath.bestPriceResult.poolPairNames;
 			const bestPools: PoolId[] = bestPath.bestPriceResult.poolPairIds.map((p) => {
@@ -75,6 +86,16 @@ export class SellBotService {
 					id: parseInt(p),
 				};
 			});
+
+			// EVM
+			const bestPathEvm = await this.sellBotBestPathEVMService.dicover();
+
+			// DEV
+			console.log({
+				dvm: bestPath.bestPriceResult.priceRatio,
+				evm: bestPathEvm.bestPriceResult,
+			});
+			throw 'reset';
 
 			this.logger.log(
 				`BestPath: ${bestPoolsName.join(' | ')} with an avg. of ${
@@ -99,6 +120,8 @@ export class SellBotService {
 				.withTransactionBuilder()
 				.dex.compositeSwap({ pools: bestPools, poolSwap: poolSwapData }, fromScript);
 
+			// DEV
+			return;
 			// broadcasting Tx
 			const txHex: string = new CTransactionSegWit(txSegWit).toHex();
 			const test = await this.ocean.rawtx.test({ hex: txHex });
