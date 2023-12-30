@@ -14,6 +14,8 @@ import { ethers } from 'ethers';
 import { VanillaSwapRouterV2Addr, DMCChainId, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import ERC20 from './ERC20.json';
+import { Route, Trade } from '@uniswap/sdk';
+import Web3 from 'web3';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
@@ -112,7 +114,9 @@ export class SellBotService {
 			);
 
 			// make tx
-			if (isDVMOverEVM) {
+			// DEV
+			// if (isDVMOverEVM) {
+			if (false) {
 				const fromScript = await this.wallet.active.getScript();
 				const toScript = fromAddress(toTokenAddressDVM, 'mainnet').script;
 				const maxPriceString = new BigNumber('1').dividedBy(minPrice).toFixed(8);
@@ -143,40 +147,80 @@ export class SellBotService {
 				this.logger.log(`Broadcasted: ${this.latestTxId}`);
 			} else {
 				const amountIn = ethers.parseEther(fromTokenAmount.toString());
-				const walletEVMProvider = new ethers.Wallet((await this.wallet.active.privateKey()).toString('hex'), this.evmProvider);
-				const accountEVM = walletEVMProvider.connect(this.evmProvider);
+				const walletEVM = new ethers.Wallet((await this.wallet.active.privateKey()).toString('hex'), this.evmProvider);
 
-				// approve amount
-				const ABI_Approve = ['function approve(address spender, uint256 amount) returns (bool success)'];
-				const dusdContract = new ethers.Contract(DUSD_DST.address, ERC20.abi, accountEVM);
-				const availableAmount = await dusdContract.balanceOf(await this.wallet.active.getEvmAddress());
-				// const txApprove = await dusdContract.approve(VanillaSwapRouterV2Addr, amountIn, {
-				// 	nonce: 0,
-				// 	value: 0,
+				// dfi available?
+				const dfiAmountFrom = await this.evmProvider.getBalance(walletEVM.address);
+				const dfiAmountTo = await this.evmProvider.getBalance(toTokenAddressEVM);
+				const nonce = await walletEVM.getNonce();
+
+				console.log({ dfiAmountFrom, dfiAmountTo, nonce });
+				// throw 'break easy tx';
+
+				// const txBasic = await walletEVM.sendTransaction({
+				// 	to: toTokenAddressEVM,
+				// 	value: ethers.parseEther('0.1'),
+				// 	gasPrice: ethers.toBigInt('10000000000'),
+				// 	gasLimit: ethers.toBigInt('100000'),
+				// 	// maxFeePerGas: ethers.toBigInt('10000000000'),
+				// 	nonce,
 				// 	chainId: DMCChainId,
-				// 	from: accountEVM.address,
-				// 	gasLimit: 20e12,
 				// });
 
+				// const receipt = await txBasic.wait();
+				// console.log({ txBasic, receipt });
+				// throw 'break easy tx';
+
+				// approve amount
+				const dusdContract = new ethers.Contract(DUSD_DST.address, ERC20.abi, walletEVM);
+				const availableAmount = await dusdContract.balanceOf(await this.wallet.active.getEvmAddress());
 				console.log({ availableAmount });
+
+				// const txApprove = await dusdContract.approve(VanillaSwapRouterV2Addr, amountIn, {
+				// 	chainId: DMCChainId,
+				// 	from: walletEVM.address,
+				// 	nonce,
+				// 	value: 0,
+				// 	gasPrice: ethers.toBigInt('10000000000'),
+				// 	gasLimit: ethers.toBigInt('1000000'),
+				// });
+				// console.log({ txApprove });
+
+				const approvedAmount = await dusdContract.allowance(walletEVM.address, VanillaSwapRouterV2Addr);
+				console.log({ approvedAmount });
+
 				// throw 'reset evm tx';
 
 				// swap
 				const ABI_Swap = [
 					'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)',
 				];
-				const path = [DUSD_DST.address, WDFI_DST.address, BTC_DST.address];
-				const router = new ethers.Contract(VanillaSwapRouterV2Addr, ABI_Swap, accountEVM);
-				const tx = await router.swapExactTokensForTokens(
-					amountIn,
-					amountIn,
-					bestPathEvm.bestPricePath,
-					await this.wallet.active.getEvmAddress(),
-					Math.floor(Date.now() / 1000) + 60 * 20,
-					{}
+				const amountOutMin = ethers.parseUnits(
+					minPrice.multipliedBy(ethers.parseEther(fromTokenAmount.toString()).toString()).toFixed(0).toString(),
+					'wei'
 				);
+				console.log(amountOutMin);
+				const path = [DUSD_DST.address, WDFI_DST.address, BTC_DST.address];
+				const deadline = Date.now() + 120 * 1000;
+				const routerContract = new ethers.Contract(VanillaSwapRouterV2Addr, ABI_Swap, walletEVM);
+				const txSwap = await routerContract.swapExactTokensForTokens(
+					amountIn,
+					ethers.parseEther('0'),
+					path,
+					toTokenAddressEVM,
+					deadline,
+					{
+						chainId: DMCChainId,
+						from: walletEVM.address,
+						nonce,
+						value: ethers.parseEther('0'),
+						gasPrice: ethers.toBigInt('10000000000'),
+						gasLimit: ethers.toBigInt('1000000'),
+					}
+				);
+				const txSwapReceipt = await txSwap.wait();
 
-				console.log(tx);
+				console.log(txSwapReceipt);
 
 				// store txid
 				throw 'reset evm tx';
@@ -184,7 +228,7 @@ export class SellBotService {
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
 			this.running = false;
-			setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+			// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
 		}
 
 		this.running = false;
