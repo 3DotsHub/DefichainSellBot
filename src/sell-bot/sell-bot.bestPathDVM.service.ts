@@ -20,7 +20,7 @@ type DiscoverData = {
 };
 
 @Injectable()
-export class SellBotBestPathService {
+export class SellBotBestPathDVMService {
 	private readonly logger = new Logger(this.constructor.name);
 
 	constructor(private ocean: Ocean) {}
