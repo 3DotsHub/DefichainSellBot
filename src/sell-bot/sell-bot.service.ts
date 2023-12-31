@@ -200,7 +200,7 @@ export class SellBotService {
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
 			this.running = false;
-			// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+			setTimeout(() => this.sellAction(), this.restartPolicyDelay);
 		}
 
 		this.running = false;
