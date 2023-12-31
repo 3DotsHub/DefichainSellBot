@@ -143,7 +143,6 @@ export class SellBotService {
 
 				// dfi available?
 				const dfiAmountFrom = await this.evmProvider.getBalance(walletEVM.address);
-				const nonce = await walletEVM.getNonce();
 				if (dfiAmountFrom < 0.01 * 10 ** 18) throw 'Top up your DFI amount on the EVM side. Below 0.01 DFI';
 
 				// approve amount
@@ -153,14 +152,14 @@ export class SellBotService {
 				if (availableAmount < fromTokenAmount * 10 ** 18) throw 'Top up your DUSD amount on the EVM side';
 
 				// need to approve more?
-				if (approvedAmount < fromTokenAmount) {
+				if (approvedAmount < fromTokenAmount * 10 ** 18) {
 					this.logger.log('Approving 20x amount of fromTokenAmount');
 					const amountInToApprove = ethers.parseEther((fromTokenAmount * 20).toString());
 
 					const txApprove = await dusdContract.approve(VanillaSwapRouterV2Addr, amountInToApprove, {
 						chainId: DMCChainId,
 						from: walletEVM.address,
-						nonce,
+						nonce: await walletEVM.getNonce(),
 						value: 0,
 						gasPrice: ethers.toBigInt('10000000000'),
 						gasLimit: ethers.toBigInt('1000000'),
@@ -184,7 +183,7 @@ export class SellBotService {
 				const txSwap = await routerContract.swapExactTokensForTokens(amountIn, amountOutMin, path, toTokenAddressEVM, deadline, {
 					chainId: DMCChainId,
 					from: walletEVM.address,
-					nonce,
+					nonce: await walletEVM.getNonce(),
 					value: ethers.parseEther('0'),
 					gasPrice: ethers.toBigInt('10000000000'),
 					gasLimit: ethers.toBigInt('1000000'),
