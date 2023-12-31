@@ -144,13 +144,13 @@ export class SellBotService {
 				// dfi available?
 				const dfiAmountFrom = await this.evmProvider.getBalance(walletEVM.address);
 				const nonce = await walletEVM.getNonce();
-				if (dfiAmountFrom < 0) throw 'No dfi for gas fee available.';
+				if (dfiAmountFrom < 0.01 * 10 ** 18) throw 'Top up your DFI amount on the EVM side. Below 0.01 DFI';
 
 				// approve amount
 				const dusdContract = new ethers.Contract(DUSD_DST.address, ERC20.abi, walletEVM);
 				const availableAmount = await dusdContract.balanceOf(await this.wallet.active.getEvmAddress());
 				const approvedAmount = await dusdContract.allowance(walletEVM.address, VanillaSwapRouterV2Addr);
-				if (availableAmount < fromTokenAmount) throw 'Top up your DUSD amount on the EVM side';
+				if (availableAmount < fromTokenAmount * 10 ** 18) throw 'Top up your DUSD amount on the EVM side';
 
 				// need to approve more?
 				if (approvedAmount < fromTokenAmount) {

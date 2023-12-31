@@ -15,6 +15,7 @@ export class SellBotBestPathEVMService {
 	private readonly logger = new Logger(this.constructor.name);
 	constructor(private ocean: Ocean, private evmProvider: EvmProvider) {}
 
+	// TODO integrate routerV2 with fromTkn and toTkn
 	async dicover(fromTokenId?: string, toTokenId?: string): Promise<DiscoverEVMData> {
 		const ABI = ['function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)'];
 		const amountIn = ethers.parseEther('1');
