@@ -14,8 +14,6 @@ import { ethers } from 'ethers';
 import { VanillaSwapRouterV2Addr, DMCChainId, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import ERC20 from './ERC20.json';
-import { Route, Trade } from '@uniswap/sdk';
-import Web3 from 'web3';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
@@ -44,19 +42,18 @@ export class SellBotService {
 		private sellBotBestPathEVMService: SellBotBestPathEVMService
 	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
-		// DEV
-		// setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
-		// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
-		setTimeout(() => this.showAddr(), 200);
-		setTimeout(() => this.sellAction(), 500);
+		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
+		setTimeout(() => this.sellAction(), this.restartPolicyDelay);
 	}
 
 	// show bot address
 	async showAddr() {
+		this.logger.log('');
 		this.logger.log(`######## You are using DVM >>> ${await this.wallet.active.getAddress()} <<< ########`);
 		this.logger.log(`######## You are using EVM >>> ${await this.wallet.active.getEvmAddress()} <<< ########`);
 		this.logger.log(`######## Swapping to >>> ${toTokenAddressDVM} <<< ########`);
 		this.logger.log(`######## Swapping to >>> ${toTokenAddressEVM} <<< ########`);
+		this.logger.log('');
 	}
 
 	// @Cron(cronCommand)
@@ -114,9 +111,7 @@ export class SellBotService {
 			);
 
 			// make tx
-			// DEV
-			// if (isDVMOverEVM) {
-			if (false) {
+			if (isDVMOverEVM) {
 				const fromScript = await this.wallet.active.getScript();
 				const toScript = fromAddress(toTokenAddressDVM, 'mainnet').script;
 				const maxPriceString = new BigNumber('1').dividedBy(minPrice).toFixed(8);
@@ -134,9 +129,6 @@ export class SellBotService {
 					.withTransactionBuilder()
 					.dex.compositeSwap({ pools: bestPools, poolSwap: poolSwapData }, fromScript);
 
-				// DEV
-				throw 'reset before submitting tx';
-
 				// broadcasting Tx
 				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
 				const test = await this.ocean.rawtx.test({ hex: txHex });
@@ -151,45 +143,32 @@ export class SellBotService {
 
 				// dfi available?
 				const dfiAmountFrom = await this.evmProvider.getBalance(walletEVM.address);
-				const dfiAmountTo = await this.evmProvider.getBalance(toTokenAddressEVM);
 				const nonce = await walletEVM.getNonce();
-
-				console.log({ dfiAmountFrom, dfiAmountTo, nonce });
-				// throw 'break easy tx';
-
-				// const txBasic = await walletEVM.sendTransaction({
-				// 	to: toTokenAddressEVM,
-				// 	value: ethers.parseEther('0.1'),
-				// 	gasPrice: ethers.toBigInt('10000000000'),
-				// 	gasLimit: ethers.toBigInt('100000'),
-				// 	// maxFeePerGas: ethers.toBigInt('10000000000'),
-				// 	nonce,
-				// 	chainId: DMCChainId,
-				// });
-
-				// const receipt = await txBasic.wait();
-				// console.log({ txBasic, receipt });
-				// throw 'break easy tx';
+				if (dfiAmountFrom < 0) throw 'No dfi for gas fee available.';
 
 				// approve amount
 				const dusdContract = new ethers.Contract(DUSD_DST.address, ERC20.abi, walletEVM);
 				const availableAmount = await dusdContract.balanceOf(await this.wallet.active.getEvmAddress());
-				console.log({ availableAmount });
-
-				// const txApprove = await dusdContract.approve(VanillaSwapRouterV2Addr, amountIn, {
-				// 	chainId: DMCChainId,
-				// 	from: walletEVM.address,
-				// 	nonce,
-				// 	value: 0,
-				// 	gasPrice: ethers.toBigInt('10000000000'),
-				// 	gasLimit: ethers.toBigInt('1000000'),
-				// });
-				// console.log({ txApprove });
-
 				const approvedAmount = await dusdContract.allowance(walletEVM.address, VanillaSwapRouterV2Addr);
-				console.log({ approvedAmount });
+				if (availableAmount < fromTokenAmount) throw 'Top up your DUSD amount on the EVM side';
 
-				// throw 'reset evm tx';
+				// need to approve more?
+				if (approvedAmount < fromTokenAmount) {
+					this.logger.log('Approving 20x amount of fromTokenAmount');
+					const amountInToApprove = ethers.parseEther((fromTokenAmount * 20).toString());
+
+					const txApprove = await dusdContract.approve(VanillaSwapRouterV2Addr, amountInToApprove, {
+						chainId: DMCChainId,
+						from: walletEVM.address,
+						nonce,
+						value: 0,
+						gasPrice: ethers.toBigInt('10000000000'),
+						gasLimit: ethers.toBigInt('1000000'),
+					});
+
+					const txApproveReceipt = await txApprove.wait();
+					this.logger.log('Approved 20x amount of fromTokenAmount');
+				}
 
 				// swap
 				const ABI_Swap = [
@@ -199,31 +178,24 @@ export class SellBotService {
 					minPrice.multipliedBy(ethers.parseEther(fromTokenAmount.toString()).toString()).toFixed(0).toString(),
 					'wei'
 				);
-				console.log(amountOutMin);
 				const path = [DUSD_DST.address, WDFI_DST.address, BTC_DST.address];
 				const deadline = Date.now() + 120 * 1000;
 				const routerContract = new ethers.Contract(VanillaSwapRouterV2Addr, ABI_Swap, walletEVM);
-				const txSwap = await routerContract.swapExactTokensForTokens(
-					amountIn,
-					ethers.parseEther('0'),
-					path,
-					toTokenAddressEVM,
-					deadline,
-					{
-						chainId: DMCChainId,
-						from: walletEVM.address,
-						nonce,
-						value: ethers.parseEther('0'),
-						gasPrice: ethers.toBigInt('10000000000'),
-						gasLimit: ethers.toBigInt('1000000'),
-					}
-				);
+				const txSwap = await routerContract.swapExactTokensForTokens(amountIn, amountOutMin, path, toTokenAddressEVM, deadline, {
+					chainId: DMCChainId,
+					from: walletEVM.address,
+					nonce,
+					value: ethers.parseEther('0'),
+					gasPrice: ethers.toBigInt('10000000000'),
+					gasLimit: ethers.toBigInt('1000000'),
+				});
 				const txSwapReceipt = await txSwap.wait();
 
-				console.log(txSwapReceipt);
+				this.latestTxId = `${txSwapReceipt.hash}@${txSwapReceipt.blockNumber}`;
+				this.latestTxIdConfirmed = false;
 
-				// store txid
-				throw 'reset evm tx';
+				// show updated
+				this.logger.log(`Broadcasted: ${this.latestTxId}`);
 			}
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
@@ -234,37 +206,49 @@ export class SellBotService {
 		this.running = false;
 	}
 
-	// async signAndSubmitEVM(tx: ethers.ContractTransaction) {
-	// 	const nonce = await this.evmProvider.getTransactionCount(await this.wallet.active.getEvmAddress());
-	// 	tx.chainId = ethers.toBigInt(DMCChainId);
-	// 	tx.gasLimit = ethers.toBigInt('100_000');
-	// 	this.evmProvider.get;
-	// 	tx.maxFeePerGas = ethers.toBigInt(this.evmProvider);
-	// 	tx.nonce = nonce;
-	// 	const signedTx = await walletEVMProvider.signTransaction(tx);
-	// 	return await this.evmProvider.sendTransaction(signedTx);
-	// }
-
 	@Interval(10000)
 	async checkForBroadcastedTx() {
 		if (this.scanning || !this.latestTxId || this.latestTxIdConfirmed) return;
 		this.scanning = true;
 
 		try {
-			const addr: string = await this.wallet.active.getAddress();
-			const txs: ApiPagedResponse<AddressHistory> = await this.ocean.address.listAccountHistory(addr, 3);
-			if (txs.length === 0) return;
+			if (this.latestTxId.slice(0, 2) === '0x') {
+				// EVM Tx
+				const [txId, blk] = this.latestTxId.split('@');
 
-			const fromTx = txs.find((tx) => tx.txid === this.latestTxId);
+				// get swapOutAmount
+				const btcContract = new ethers.Contract(BTC_DST.address, ERC20.abi, this.evmProvider);
+				const eventLogFilter = btcContract.filters.Transfer(null, await this.wallet.active.getEvmAddress());
+				const eventLog = await btcContract.queryFilter(eventLogFilter, parseInt(blk));
+				const fromTx = eventLog.find((tx) => tx.transactionHash === txId);
 
-			if (fromTx) {
-				const toTx = await this.ocean.address.getAccountHistory(toTokenAddressDVM, fromTx.block.height, fromTx.txn);
-				this.latestTxIdConfirmed = true;
+				if (fromTx) {
+					const swappedAmount = parseInt(fromTx.data.slice(2), 16) / 10 ** 18;
+					const avg = (swappedAmount / fromTokenAmount).toFixed(8);
+					this.latestTxIdConfirmed = true;
 
-				const avg = (-parseFloat(toTx.amounts[0].split('@')[0]) / parseFloat(fromTx.amounts[0].split('@')[0])).toFixed(8);
-				this.logger.log(
-					`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
-				);
+					// show swap details
+					this.logger.log(
+						`Swapped: ${fromTokenAmount} to ${swappedAmount} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.blockNumber} txn ${fromTx.index}\n`
+					);
+				}
+			} else {
+				// DVM Tx
+				const addr: string = await this.wallet.active.getAddress();
+				const txs: ApiPagedResponse<AddressHistory> = await this.ocean.address.listAccountHistory(addr, 3);
+				if (txs.length === 0) return;
+
+				const fromTx = txs.find((tx) => tx.txid === this.latestTxId);
+
+				if (fromTx) {
+					const toTx = await this.ocean.address.getAccountHistory(toTokenAddressDVM, fromTx.block.height, fromTx.txn);
+					this.latestTxIdConfirmed = true;
+
+					const avg = (-parseFloat(toTx.amounts[0].split('@')[0]) / parseFloat(fromTx.amounts[0].split('@')[0])).toFixed(8);
+					this.logger.log(
+						`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
+					);
+				}
 			}
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
