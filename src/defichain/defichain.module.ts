@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { Ocean } from './defichain.ocean.client.service';
-import { Wallet } from './defichain.ocean.wallet.service';
-import { DmcProvider } from './defichain.dmc.provider.service';
+import { Ocean } from './services/defichain.ocean.client.service';
+import { Wallet } from './services/defichain.ocean.wallet.service';
+import { EvmProvider } from './services/defichain.evm.provider.service';
 
 @Module({
-	providers: [Ocean, Wallet, DmcProvider],
-	exports: [Ocean, Wallet, DmcProvider],
+	providers: [Ocean, Wallet, EvmProvider],
+	exports: [Ocean, Wallet, EvmProvider],
 	controllers: [],
 })
 export class DefichainModule {}

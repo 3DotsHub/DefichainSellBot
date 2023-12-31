@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { DefichainModule } from 'src/defichain/defichain.module';
 import { SellBotService } from './sell-bot.service';
-import { SellBotBestPathService } from './sell-bot.bestPath.service';
+import { SellBotBestPathDVMService } from './sell-bot.bestPathDVM.service';
+import { SellBotBestPathEVMService } from './sell-bot.bestPathEVM.service';
 
 @Module({
-	providers: [SellBotService, SellBotBestPathService],
+	providers: [SellBotService, SellBotBestPathDVMService, SellBotBestPathEVMService],
 	controllers: [],
 	imports: [DefichainModule],
 	exports: [],

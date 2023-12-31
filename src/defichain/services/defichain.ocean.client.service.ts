@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { WhaleApiClient } from '@defichain/whale-api-client';
-import { selectedNetwork, oceanUrl } from './defichain.config';
+import { selectedNetwork, oceanUrl } from '../defichain.config';
 
 @Injectable()
 export class Ocean extends WhaleApiClient {
