@@ -11,9 +11,8 @@ import { BigNumber } from 'bignumber.js';
 import { SellBotBestPathDVMService } from './sell-bot.bestPathDVM.service';
 import { SellBotBestPathEVMService } from './sell-bot.bestPathEVM.service';
 import { ethers } from 'ethers';
-import { VanillaSwapRouterV2Addr, DMCChainId, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
+import { VanillaSwapRouterV2, DMCChainId, ERC20ABI, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
-import ERC20 from './ERC20.json';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
@@ -146,9 +145,9 @@ export class SellBotService {
 				if (dfiAmountFrom < 0.01 * 10 ** 18) throw 'Top up your DFI amount on the EVM side. Below 0.01 DFI';
 
 				// approve amount
-				const dusdContract = new ethers.Contract(DUSD_DST.address, ERC20.abi, walletEVM);
+				const dusdContract = new ethers.Contract(DUSD_DST.address, ERC20ABI, walletEVM);
 				const availableAmount = await dusdContract.balanceOf(await this.wallet.active.getEvmAddress());
-				const approvedAmount = await dusdContract.allowance(walletEVM.address, VanillaSwapRouterV2Addr);
+				const approvedAmount = await dusdContract.allowance(walletEVM.address, VanillaSwapRouterV2.address);
 				if (availableAmount < fromTokenAmount * 10 ** 18) throw 'Top up your DUSD amount on the EVM side';
 
 				// need to approve more?
@@ -156,7 +155,7 @@ export class SellBotService {
 					this.logger.log('Approving 20x amount of fromTokenAmount');
 					const amountInToApprove = ethers.parseEther((fromTokenAmount * 20).toString());
 
-					const txApprove = await dusdContract.approve(VanillaSwapRouterV2Addr, amountInToApprove, {
+					const txApprove = await dusdContract.approve(VanillaSwapRouterV2.address, amountInToApprove, {
 						chainId: DMCChainId,
 						from: walletEVM.address,
 						nonce: await walletEVM.getNonce(),
@@ -179,7 +178,7 @@ export class SellBotService {
 				);
 				const path = [DUSD_DST.address, WDFI_DST.address, BTC_DST.address];
 				const deadline = Date.now() + 120 * 1000;
-				const routerContract = new ethers.Contract(VanillaSwapRouterV2Addr, ABI_Swap, walletEVM);
+				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, ABI_Swap, walletEVM);
 				const txSwap = await routerContract.swapExactTokensForTokens(amountIn, amountOutMin, path, toTokenAddressEVM, deadline, {
 					chainId: DMCChainId,
 					from: walletEVM.address,
@@ -216,7 +215,7 @@ export class SellBotService {
 				const [txId, blk] = this.latestTxId.split('@');
 
 				// get swapOutAmount
-				const btcContract = new ethers.Contract(BTC_DST.address, ERC20.abi, this.evmProvider);
+				const btcContract = new ethers.Contract(BTC_DST.address, ERC20ABI, this.evmProvider);
 				const eventLogFilter = btcContract.filters.Transfer(null, await this.wallet.active.getEvmAddress());
 				const eventLog = await btcContract.queryFilter(eventLogFilter, parseInt(blk));
 				const fromTx = eventLog.find((tx) => tx.transactionHash === txId);
