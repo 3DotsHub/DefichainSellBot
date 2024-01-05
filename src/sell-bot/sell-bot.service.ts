@@ -13,6 +13,7 @@ import { SellBotBestPathEVMService } from './sell-bot.bestPathEVM.service';
 import { ethers } from 'ethers';
 import { VanillaSwapRouterV2, DMCChainId, ERC20ABI, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
+import { SellBotTransferDomainService } from './sell-bot.transferDomain.service';
 
 // params
 const sellBotServiceNameOverwrite: string = '';
@@ -38,7 +39,8 @@ export class SellBotService {
 		private wallet: Wallet,
 		private evmProvider: EvmProvider,
 		private sellBotBestPathDVMService: SellBotBestPathDVMService,
-		private sellBotBestPathEVMService: SellBotBestPathEVMService
+		private sellBotBestPathEVMService: SellBotBestPathEVMService,
+		private sellBotTransferDomainService: SellBotTransferDomainService
 	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
 		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
@@ -169,24 +171,27 @@ export class SellBotService {
 				}
 
 				// swap
-				const ABI_Swap = [
-					'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)',
-				];
 				const amountOutMin = ethers.parseUnits(
 					minPrice.multipliedBy(ethers.parseEther(fromTokenAmount.toString()).toString()).toFixed(0).toString(),
 					'wei'
 				);
-				const path = [DUSD_DST.address, WDFI_DST.address, BTC_DST.address];
 				const deadline = Date.now() + 120 * 1000;
-				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, ABI_Swap, walletEVM);
-				const txSwap = await routerContract.swapExactTokensForTokens(amountIn, amountOutMin, path, toTokenAddressEVM, deadline, {
-					chainId: DMCChainId,
-					from: walletEVM.address,
-					nonce: await walletEVM.getNonce(),
-					value: ethers.parseEther('0'),
-					gasPrice: ethers.toBigInt('10000000000'),
-					gasLimit: ethers.toBigInt('1000000'),
-				});
+				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, VanillaSwapRouterV2.abi, walletEVM);
+				const txSwap = await routerContract.swapExactTokensForTokens(
+					amountIn,
+					amountOutMin,
+					bestPathEvm.bestPricePath,
+					toTokenAddressEVM,
+					deadline,
+					{
+						chainId: DMCChainId,
+						from: walletEVM.address,
+						nonce: await walletEVM.getNonce(),
+						value: ethers.parseEther('0'),
+						gasPrice: ethers.toBigInt('10000000000'),
+						gasLimit: ethers.toBigInt('1000000'),
+					}
+				);
 				const txSwapReceipt = await txSwap.wait();
 
 				this.latestTxId = `${txSwapReceipt.hash}@${txSwapReceipt.blockNumber}`;
@@ -247,6 +252,11 @@ export class SellBotService {
 						`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
 					);
 				}
+			}
+
+			// Tx got confirmed, check for TransferDomain
+			if (this.latestTxIdConfirmed == true) {
+				await this.sellBotTransferDomainService.checkForTransferDomainBTC();
 			}
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);

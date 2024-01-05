@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
-import { VanillaSwapRouterV2, VanillaSwapFactory, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
+import { VanillaSwapRouterV2 } from 'src/defichain/defichain.config';
 
 type DiscoverEVMData = {
 	bestPricePath: string[];
@@ -61,6 +61,32 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
+			// {
+			// 	pathNames: ['DUSD', 'VAN', 'USDT'],
+			// 	path: [
+			// 		'0xff0000000000000000000000000000000000000f',
+			// 		'0x870c765f8af9b189c324be88b99884e5bae4514b',
+			// 		'0xff00000000000000000000000000000000000003',
+			// 	],
+			// },
+			// {
+			// 	pathNames: ['DUSD', 'VAN', 'WDFI', 'USDT'],
+			// 	path: [
+			// 		'0xff0000000000000000000000000000000000000f',
+			// 		'0x870c765f8af9b189c324be88b99884e5bae4514b',
+			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+			// 		'0xff00000000000000000000000000000000000003',
+			// 	],
+			// },
+			// {
+			// 	pathNames: ['DUSD', 'WDFI', 'MUSD', 'USDT'],
+			// 	path: [
+			// 		'0xff0000000000000000000000000000000000000f',
+			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+			// 		'0x80b6897ba629d6c42584ec162cca29f1e34783be',
+			// 		'0xff00000000000000000000000000000000000003',
+			// 	],
+			// },
 		];
 	}
 
@@ -78,7 +104,7 @@ export class SellBotBestPathEVMService {
 
 		for (let p of paths) {
 			priceQuotes.push(await this.quotePath(amount, p.path));
-			if (!bestIdx) bestIdx = 0;
+			if (bestIdx == undefined) bestIdx = 0;
 			else if (priceQuotes.at(-1) > priceQuotes[bestIdx]) bestIdx = priceQuotes.length - 1;
 		}
 

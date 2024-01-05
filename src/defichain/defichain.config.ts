@@ -3,6 +3,7 @@ import { MainNet, TestNet, Network } from '@defichain/jellyfish-network';
 import { Token, ChainId } from '@uniswap/sdk-core';
 import VanillaSwapFactoryABI from './abis/VanillaSwapFactory.json';
 import VanillaSwapRouterV2ABI from './abis/VanillaSwapRouterV2.json';
+import TransferDomainV1ABI from './abis/TransferDomainV1.json';
 import _ERC20ABI from './abis/ERC20.json';
 
 // network and url
@@ -14,6 +15,11 @@ export const oceanUrl = {
 };
 export const dmcUrl = 'https://dmc.mydefichain.com/';
 export const DMCChainId = 1130 as ChainId;
+export const TransferDomainType = {
+	UTXO: 1,
+	DVM: 2,
+	EVM: 3,
+};
 
 export type ContractDetails = {
 	address: string;
@@ -28,6 +34,7 @@ export const VanillaSwapRouterV2: ContractDetails = {
 	address: '0x3E8C92491fc73390166BA00725B8F5BD734B8fba',
 	abi: VanillaSwapRouterV2ABI,
 };
+export const TransferDomainV1: ContractDetails = { address: '0xdf00000000000000000000000000000000000001', abi: TransferDomainV1ABI };
 
 // defichain standard tokens
 export const ERC20ABI = _ERC20ABI;
