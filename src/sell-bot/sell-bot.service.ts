@@ -10,7 +10,7 @@ import { CTransactionSegWit, TransactionSegWit } from '@defichain/jellyfish-tran
 import { BigNumber } from 'bignumber.js';
 import { SellBotBestPathDVMService } from './sell-bot.bestPathDVM.service';
 import { SellBotBestPathEVMService } from './sell-bot.bestPathEVM.service';
-import { ethers } from 'ethers';
+import { ethers, TransactionResponse, TransactionReceipt } from 'ethers';
 import { VanillaSwapRouterV2, DMCChainId, ERC20ABI, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { SellBotTransferDomainService } from './sell-bot.transferDomain.service';
@@ -154,10 +154,10 @@ export class SellBotService {
 
 				// need to approve more?
 				if (approvedAmount < fromTokenAmount * 10 ** 18) {
-					this.logger.log('Approving 20x amount of fromTokenAmount');
 					const amountInToApprove = ethers.parseEther((fromTokenAmount * 20).toString());
+					this.logger.log(`Approving: 20x of swap amount (${fromTokenAmount * 20}) for ${VanillaSwapRouterV2.address}`);
 
-					const txApprove = await dusdContract.approve(VanillaSwapRouterV2.address, amountInToApprove, {
+					const txApprove: TransactionResponse = await dusdContract.approve(VanillaSwapRouterV2.address, amountInToApprove, {
 						chainId: DMCChainId,
 						from: walletEVM.address,
 						nonce: await walletEVM.getNonce(),
@@ -166,8 +166,16 @@ export class SellBotService {
 						gasLimit: ethers.toBigInt('1000000'),
 					});
 
-					const txApproveReceipt = await txApprove.wait();
-					this.logger.log('Approved 20x amount of fromTokenAmount');
+					// show update
+					this.logger.log(`Broadcasted: ${txApprove.hash} for nonce ${txApprove.nonce}`);
+
+					// wait for tx
+					const txApproveReceipt: TransactionReceipt = await txApprove.wait();
+					this.logger.log(
+						`Approved: 20x of swap amount (${fromTokenAmount * 20}) at block ${txApproveReceipt.blockNumber} txn ${
+							txApproveReceipt.index
+						}`
+					);
 				}
 
 				// swap
@@ -177,7 +185,7 @@ export class SellBotService {
 				);
 				const deadline = Date.now() + 120 * 1000;
 				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, VanillaSwapRouterV2.abi, walletEVM);
-				const txSwap = await routerContract.swapExactTokensForTokens(
+				const txSwap: TransactionResponse = await routerContract.swapExactTokensForTokens(
 					amountIn,
 					amountOutMin,
 					bestPathEvm.bestPricePath,
@@ -192,13 +200,14 @@ export class SellBotService {
 						gasLimit: ethers.toBigInt('1000000'),
 					}
 				);
-				const txSwapReceipt = await txSwap.wait();
 
+				// show update
+				this.logger.log(`Broadcasted: ${txSwap.hash} for nonce ${txSwap.nonce}`);
+
+				// wait for tx
+				const txSwapReceipt: TransactionReceipt = await txSwap.wait();
 				this.latestTxId = `${txSwapReceipt.hash}@${txSwapReceipt.blockNumber}`;
 				this.latestTxIdConfirmed = false;
-
-				// show updated
-				this.logger.log(`Broadcasted: ${this.latestTxId}`);
 			}
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);

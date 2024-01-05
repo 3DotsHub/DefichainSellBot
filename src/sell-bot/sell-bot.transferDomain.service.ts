@@ -104,6 +104,6 @@ export class SellBotTransferDomainService {
 		// sending
 		const txid = await this.ocean.rawtx.send({ hex: segWitSignedTx.toHex() });
 		this.logger.log(`Broadcasted: ${txid}`);
-		this.logger.log(`TransferDomain: ${amountToTransfer} BTC to ${this.toTokenAddressDVM}`);
+		this.logger.log(`TransferDomain: ${amountToTransfer} BTC to ${this.toTokenAddressDVM}\n`);
 	}
 }
