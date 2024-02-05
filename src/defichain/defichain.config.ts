@@ -4,6 +4,7 @@ import { Token, ChainId } from '@uniswap/sdk-core';
 import VanillaSwapFactoryABI from './abis/VanillaSwapFactory.json';
 import VanillaSwapRouterV2ABI from './abis/VanillaSwapRouterV2.json';
 import TransferDomainV1ABI from './abis/TransferDomainV1.json';
+import DUSDBondAbi from './abis/DUSDBond.json';
 import _ERC20ABI from './abis/ERC20.json';
 
 // network and url
@@ -35,6 +36,8 @@ export const VanillaSwapRouterV2: ContractDetails = {
 	abi: VanillaSwapRouterV2ABI,
 };
 export const TransferDomainV1: ContractDetails = { address: '0xdf00000000000000000000000000000000000001', abi: TransferDomainV1ABI };
+export const DUSDBond1Y: ContractDetails = { address: '0xD88Bb8359D694c974C9726b6201479a123212333', abi: DUSDBondAbi };
+export const DUSDBond2Y: ContractDetails = { address: '0xc5B7aAc761aa3C3f34A3cEB1333f6431d811d638', abi: DUSDBondAbi };
 
 // defichain standard tokens
 export const ERC20ABI = _ERC20ABI;

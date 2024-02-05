@@ -43,8 +43,10 @@ export class SellBotService {
 		private sellBotTransferDomainService: SellBotTransferDomainService
 	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
-		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
-		setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+
+		// setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
+		// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+		// setTimeout(() => this.sellBotBestPathEVMService.dicover(), 100);
 	}
 
 	// show bot address
@@ -58,7 +60,7 @@ export class SellBotService {
 	}
 
 	// @Cron(cronCommand)
-	@Interval(INTERVALSEC * 1000)
+	// @Interval(INTERVALSEC * 1000)
 	async sellAction() {
 		if (!fromTokenName || !fromTokenAmount || !toTokenName || !toTokenAddressDVM || !toTokenAddressEVM || !minPrice)
 			throw new Error('Missing params, see .env.example');
@@ -95,7 +97,7 @@ export class SellBotService {
 			});
 
 			// EVM
-			const bestPathEvm = await this.sellBotBestPathEVMService.dicover();
+			const bestPathEvm = await this.sellBotBestPathEVMService.dicover(fromTokenAmount.toString());
 
 			// DVM vs EVM
 			const isDVMOverEVM = bestPathDVM.bestPriceResult.priceRatio > bestPathEvm.bestPriceResult;
