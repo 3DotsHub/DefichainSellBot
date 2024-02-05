@@ -52,15 +52,15 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
-			{
-				pathNames: ['DUSD', 'MLAND', 'WDFI', 'BTC'],
-				path: [
-					'0xff0000000000000000000000000000000000000f',
-					'0x40713cd6eb30c6754f5721bfd4e6e50fda9e2954',
-					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
-					'0xff00000000000000000000000000000000000002',
-				],
-			},
+			// {
+			// 	pathNames: ['DUSD', 'MLAND', 'WDFI', 'BTC'],
+			// 	path: [
+			// 		'0xff0000000000000000000000000000000000000f',
+			// 		'0x40713cd6eb30c6754f5721bfd4e6e50fda9e2954',
+			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+			// 		'0xff00000000000000000000000000000000000002',
+			// 	],
+			// },
 			// {
 			// 	pathNames: ['DUSD', 'VAN', 'USDT'],
 			// 	path: [
