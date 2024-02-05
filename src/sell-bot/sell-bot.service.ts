@@ -115,6 +115,7 @@ export class SellBotService {
 			// check minPrice met
 			if (bestPriceDVMEVM < parseFloat(minPrice.toFixed(8))) {
 				this.logger.log(`Best price of ${minPrice.toFixed(8)} not met. ${isDVMOverEVM ? 'DVM' : 'EVM'} gave ${bestPriceDVMEVM}`);
+				this.running = false;
 				return;
 			}
 
