@@ -101,12 +101,6 @@ export class SellBotService {
 			const isDVMOverEVM = bestPathDVM.bestPriceResult.priceRatio > bestPathEvm.bestPriceResult;
 			const bestPriceDVMEVM = isDVMOverEVM ? bestPathDVM.bestPriceResult.priceRatio : bestPathEvm.bestPriceResult;
 
-			// check minPrice met
-			if (bestPriceDVMEVM < parseFloat(minPrice.toFixed(8))) {
-				this.logger.log(`Best price of ${minPrice.toFixed(8)} not met. ${isDVMOverEVM ? 'DVM' : 'EVM'} gave ${bestPriceDVMEVM}`);
-				return;
-			}
-
 			this.logger.log(
 				`BestPathDVM: ${bestPoolsName.join(' | ')} with an avg. of ${
 					bestPathDVM.bestPriceResult.priceRatio
@@ -117,6 +111,12 @@ export class SellBotService {
 					8
 				)} ${toTokenName}/${fromTokenName}`
 			);
+
+			// check minPrice met
+			if (bestPriceDVMEVM < parseFloat(minPrice.toFixed(8))) {
+				this.logger.log(`Best price of ${minPrice.toFixed(8)} not met. ${isDVMOverEVM ? 'DVM' : 'EVM'} gave ${bestPriceDVMEVM}`);
+				return;
+			}
 
 			// make tx
 			if (isDVMOverEVM) {
