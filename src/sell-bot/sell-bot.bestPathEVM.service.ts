@@ -52,15 +52,15 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
-			// {
-			// 	pathNames: ['DUSD', 'MLAND', 'WDFI', 'BTC'],
-			// 	path: [
-			// 		'0xff0000000000000000000000000000000000000f',
-			// 		'0x40713cd6eb30c6754f5721bfd4e6e50fda9e2954',
-			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
-			// 		'0xff00000000000000000000000000000000000002',
-			// 	],
-			// },
+			{
+				pathNames: ['DUSD', 'MLAND', 'WDFI', 'BTC'],
+				path: [
+					'0xff0000000000000000000000000000000000000f',
+					'0x40713cd6eb30c6754f5721bfd4e6e50fda9e2954',
+					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+					'0xff00000000000000000000000000000000000002',
+				],
+			},
 			// {
 			// 	pathNames: ['DUSD', 'VAN', 'USDT'],
 			// 	path: [
@@ -94,7 +94,8 @@ export class SellBotBestPathEVMService {
 		const amountIn = ethers.parseEther(amount || '1');
 		const router = new ethers.Contract(VanillaSwapRouterV2.address, VanillaSwapRouterV2.abi, this.evmProvider);
 		const amounts = await router.getAmountsOut(amountIn, path);
-		return ethers.formatUnits(amounts.at(-1).toString(), 18);
+		const adj = Math.floor(parseFloat(amounts.at(-1).toString()) / parseFloat(amount));
+		return ethers.formatUnits(adj.toString(), 18);
 	}
 
 	async dicover(amount?: string, pathArray?: string[]): Promise<DiscoverEVMData> {

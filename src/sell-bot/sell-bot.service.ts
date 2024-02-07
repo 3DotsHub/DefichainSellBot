@@ -95,7 +95,7 @@ export class SellBotService {
 			});
 
 			// EVM
-			const bestPathEvm = await this.sellBotBestPathEVMService.dicover();
+			const bestPathEvm = await this.sellBotBestPathEVMService.dicover(fromTokenAmount.toString());
 
 			// DVM vs EVM
 			const isDVMOverEVM = bestPathDVM.bestPriceResult.priceRatio > bestPathEvm.bestPriceResult;
@@ -114,7 +114,7 @@ export class SellBotService {
 
 			// check minPrice met
 			if (bestPriceDVMEVM < parseFloat(minPrice.toFixed(8))) {
-				this.logger.log(`Best price of ${minPrice.toFixed(8)} not met. ${isDVMOverEVM ? 'DVM' : 'EVM'} gave ${bestPriceDVMEVM}`);
+				this.logger.log(`Best price of ${minPrice.toFixed(8)} not met. ${isDVMOverEVM ? 'DVM' : 'EVM'} gave ${bestPriceDVMEVM}\n`);
 				this.running = false;
 				return;
 			}
