@@ -214,8 +214,8 @@ export class SellBotService {
 
 				// wait for tx
 				const txSwapReceipt: TransactionReceipt = await txSwap.wait();
-				this.latestTxId = `${txSwapReceipt.hash}@${txSwapReceipt.blockNumber}`;
-				this.latestTxIdConfirmed = false;
+				// this.latestTxId = `${txSwapReceipt.hash}@${txSwapReceipt.blockNumber}`;
+				// this.latestTxIdConfirmed = false;
 			}
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
