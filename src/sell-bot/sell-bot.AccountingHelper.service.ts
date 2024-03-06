@@ -6,7 +6,6 @@ import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { Wallet } from 'src/defichain/services/defichain.ocean.wallet.service';
 import { BTC_DST, DUSD_DST, ERC20ABI } from 'src/defichain/defichain.config';
 import fs from 'fs';
-import { MetricLoggerUnit } from '@uniswap/smart-order-router';
 
 type AllSwapsEventLog = { from: (ethers.Log | ethers.EventLog)[]; to: (ethers.Log | ethers.EventLog)[] };
 
@@ -16,7 +15,7 @@ export class SellBotAccountingHelperService {
 	private readonly logFile = './logs/eventFilterBTCSwaps';
 
 	constructor(private ocean: Ocean, private wallet: Wallet, private evmProvider: EvmProvider) {
-		setTimeout(() => this.getDUSDDeposits(), 100);
+		setTimeout(() => this.getEVMSwaps(), 100);
 	}
 
 	async fetchAllDUSDDeposits() {
