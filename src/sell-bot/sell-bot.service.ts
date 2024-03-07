@@ -237,8 +237,9 @@ export class SellBotService {
 				const [txId, blk] = this.latestTxId.split('@');
 
 				// get swapOutAmount
+				const VANLPAddr: string = '0xaCE955A73Efbef460e3d557021d3430b41448B3A';
 				const btcContract = new ethers.Contract(BTC_DST.address, ERC20ABI, this.evmProvider);
-				const eventLogFilter = btcContract.filters.Transfer(null, await this.wallet.active.getEvmAddress());
+				const eventLogFilter = btcContract.filters.Transfer(VANLPAddr, await this.wallet.active.getEvmAddress());
 				const eventLog = await btcContract.queryFilter(eventLogFilter, parseInt(blk));
 				const fromTx = eventLog.find((tx) => tx.transactionHash === txId);
 
