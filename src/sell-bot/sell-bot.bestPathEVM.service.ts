@@ -4,7 +4,14 @@ import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { VanillaSwapRouterV2 } from 'src/defichain/defichain.config';
 
+type PriceResult = {
+	poolPairPath: string[];
+	poolPairNames: string[];
+	priceRatio: number;
+}[];
+
 type DiscoverEVMData = {
+	allPriceResults: PriceResult;
 	bestPricePath: string[];
 	bestPricePathNames: string[];
 	bestPriceResult: number;
@@ -34,11 +41,21 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
+
 			{
 				pathNames: ['DUSD', 'HOSP', 'WDFI', 'BTC'],
 				path: [
 					'0xff0000000000000000000000000000000000000f',
 					'0x5128e0407a5b9b123ad942f9a9f0c151aef7d1ef',
+					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+					'0xff00000000000000000000000000000000000002',
+				],
+			},
+			{
+				pathNames: ['DUSD', 'JELLO', 'WDFI', 'BTC'],
+				path: [
+					'0xff0000000000000000000000000000000000000f',
+					'0xCCF58CE4F55156536C5f18dE2975E75D7A754CB8',
 					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
 					'0xff00000000000000000000000000000000000002',
 				],
@@ -61,32 +78,16 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
-			// {
-			// 	pathNames: ['DUSD', 'VAN', 'USDT'],
-			// 	path: [
-			// 		'0xff0000000000000000000000000000000000000f',
-			// 		'0x870c765f8af9b189c324be88b99884e5bae4514b',
-			// 		'0xff00000000000000000000000000000000000003',
-			// 	],
-			// },
-			// {
-			// 	pathNames: ['DUSD', 'VAN', 'WDFI', 'USDT'],
-			// 	path: [
-			// 		'0xff0000000000000000000000000000000000000f',
-			// 		'0x870c765f8af9b189c324be88b99884e5bae4514b',
-			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
-			// 		'0xff00000000000000000000000000000000000003',
-			// 	],
-			// },
-			// {
-			// 	pathNames: ['DUSD', 'WDFI', 'MUSD', 'USDT'],
-			// 	path: [
-			// 		'0xff0000000000000000000000000000000000000f',
-			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
-			// 		'0x80b6897ba629d6c42584ec162cca29f1e34783be',
-			// 		'0xff00000000000000000000000000000000000003',
-			// 	],
-			// },
+			{
+				pathNames: ['DUSD', 'VAN', 'USDT', 'WDFI', 'BTC'],
+				path: [
+					'0xff0000000000000000000000000000000000000f',
+					'0x870c765f8af9b189c324be88b99884e5bae4514b',
+					'0xff00000000000000000000000000000000000003',
+					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+					'0xff00000000000000000000000000000000000002',
+				],
+			},
 		];
 	}
 
@@ -98,7 +99,7 @@ export class SellBotBestPathEVMService {
 		return ethers.formatUnits(adj.toString(), 18);
 	}
 
-	async dicover(amount?: string, pathArray?: string[]): Promise<DiscoverEVMData> {
+	async discover(amount?: string, pathArray?: string[]): Promise<DiscoverEVMData> {
 		const priceQuotes = [];
 		const paths = this.allPaths();
 		let bestIdx: number;
@@ -109,7 +110,16 @@ export class SellBotBestPathEVMService {
 			else if (priceQuotes.at(-1) > priceQuotes[bestIdx]) bestIdx = priceQuotes.length - 1;
 		}
 
+		const allPriceResults: PriceResult = paths.map((p, idx) => {
+			return {
+				poolPairPath: p.path,
+				poolPairNames: p.pathNames,
+				priceRatio: parseFloat(priceQuotes[idx]),
+			};
+		});
+
 		return {
+			allPriceResults,
 			bestPricePath: paths[bestIdx].path,
 			bestPricePathNames: paths[bestIdx].pathNames,
 			bestPriceResult: parseFloat(priceQuotes[bestIdx]),

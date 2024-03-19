@@ -25,7 +25,7 @@ export class SellBotBestPathDVMService {
 
 	constructor(private ocean: Ocean) {}
 
-	async dicover(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
+	async discover(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
 		const { fromToken, toToken, paths } = await this.ocean.poolpairs.getAllPaths(fromTokenId, toTokenId);
 
 		let bestPriceResult: PriceResult;
