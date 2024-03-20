@@ -130,14 +130,13 @@ export class SellBotService {
 					showSats(bestPathHYBUSDT.discoverDVM.bestPriceResult.priceRatio * r.priceRatio)
 				)
 			);
-			return;
 
 			// Best Price Validation
 			const bestPricesForValidation = [
 				bestPathDVM.bestPriceResult.priceRatio,
 				bestPathEVM.bestPriceResult,
 				bestPathHYBDFI.bestPriceResult,
-				// bestPathHYBUSDT.bestPriceResult,
+				bestPathHYBUSDT.bestPriceResult,
 			];
 
 			const bestPricesForValidationPrice = Math.max(...bestPricesForValidation);
@@ -155,8 +154,7 @@ export class SellBotService {
 				`>>> ${BestPathValidationStrings[bestPricesForValidationIdx]}: --> ${bestPricesForValidationPrice} ${currencyStr} <<<`
 			);
 
-			// console.log(bestPathHYBDFI.discoverEVM);
-			// console.log(bestPathHYBUSDT.discoverEVM);
+			return;
 
 			// check minPrice met
 			if (bestPricesForValidationPrice < parseFloat(minPrice.toFixed(8))) {

@@ -30,8 +30,8 @@ export class SellBotBestPathDVMService {
 
 		let bestPriceResult: PriceResult;
 		const allPriceResults: PriceResult[] = paths.map((path) => {
+			const poolPairNames: string[] = [fromToken.symbol];
 			const poolPairIds: string[] = [];
-			const poolPairNames: string[] = [];
 			let priceRatio: number = 1;
 			let dexFeePct: number = 0;
 			let comFeePct: number = 0;
@@ -39,7 +39,6 @@ export class SellBotBestPathDVMService {
 
 			for (let p of path) {
 				poolPairIds.push(p.poolPairId);
-				poolPairNames.push(p.symbol);
 
 				// make ref entry
 				const refEntryAB = p.tokenB.id === refToken.id;
@@ -61,6 +60,7 @@ export class SellBotBestPathDVMService {
 
 				// adj refToken
 				refToken = refEntryAB ? p.tokenA : p.tokenB;
+				poolPairNames.push(refToken.symbol);
 			}
 
 			// limit priceRatio to 8 digits float
