@@ -8,7 +8,7 @@ import BigNumber from 'bignumber.js';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { Wallet } from 'src/defichain/services/defichain.ocean.wallet.service';
-import { TransferDomainType, TransferDomainV1, BTC_DST, ERC20ABI, DMCChainId } from 'src/defichain/defichain.config';
+import { TransferDomainType, TransferDomainV1, BTC_DST, ERC20ABI, DMCChainId, DUSD_DST } from 'src/defichain/defichain.config';
 
 @Injectable()
 export class SellBotTransferDomainService {
@@ -28,17 +28,19 @@ export class SellBotTransferDomainService {
 		const toTokenAddressDVMScript = fromAddress(this.toTokenAddressDVM, 'mainnet').script;
 
 		// check for threshold
-		const btcContract = new ethers.Contract(BTC_DST.address, ERC20ABI, this.evmProvider);
-		const amountOnEvmAddress = await btcContract.balanceOf(evmAddress);
-		const amountToTransfer = new BigNumber(Math.floor(parseFloat(amountOnEvmAddress) / 10 ** 10) / 10 ** 8);
-		if (amountOnEvmAddress < this.threshold) return;
+		// const btcContract = new ethers.Contract(BTC_DST.address, ERC20ABI, this.evmProvider);
+		// const amountOnEvmAddress = await btcContract.balanceOf(evmAddress);
+		// const amountToTransfer = new BigNumber(Math.floor(parseFloat(amountOnEvmAddress) / 10 ** 10) / 10 ** 8);
+		const amountToTransfer = new BigNumber('289990');
+		// if (amountOnEvmAddress < this.threshold) return;
 
 		// create EVM TD TX
-		this.logger.log(`TransferDomain of ${amountToTransfer} BTC from EVM to DVM`);
+		this.logger.log(`TransferDomain of ${amountToTransfer} DUSD from EVM to DVM`);
+		return
 
 		const ITransferDomainV1 = new ethers.Interface(TransferDomainV1.abi);
 		const data = ITransferDomainV1.encodeFunctionData('transferDST20', [
-			BTC_DST.address,
+			DUSD_DST.address,
 			evmAddress,
 			TransferDomainV1.address,
 			ethers.parseEther(amountToTransfer.toString()),
@@ -64,7 +66,7 @@ export class SellBotTransferDomainService {
 						address: evmScript,
 						domain: TransferDomainType.EVM,
 						amount: {
-							token: 2,
+							token: 15,
 							amount: amountToTransfer,
 						},
 						data: new Uint8Array(Buffer.from(evmSignedTx, 'hex')),
@@ -73,7 +75,7 @@ export class SellBotTransferDomainService {
 						address: toTokenAddressDVMScript,
 						domain: TransferDomainType.DVM,
 						amount: {
-							token: 2,
+							token: 15,
 							amount: amountToTransfer,
 						},
 						data: new Uint8Array([]),

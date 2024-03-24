@@ -32,7 +32,7 @@ export class SellBotService {
 	private scanning: boolean = false;
 	private latestTxIdConfirmed: boolean = true;
 	private latestTxId: string;
-	private readonly restartPolicyDelay: number = 10000;
+	private readonly restartPolicyDelay: number = 1000;
 
 	constructor(
 		private ocean: Ocean,
@@ -44,7 +44,8 @@ export class SellBotService {
 	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
 		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
-		setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+		// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
+		setTimeout(() => this.sellBotTransferDomainService.checkForTransferDomainBTC(), this.restartPolicyDelay);
 	}
 
 	// show bot address
@@ -191,6 +192,7 @@ export class SellBotService {
 					minPrice.multipliedBy(ethers.parseEther(fromTokenAmount.toString()).toString()).toFixed(0).toString(),
 					'wei'
 				);
+
 				const deadline = Date.now() + 120 * 1000;
 				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, VanillaSwapRouterV2.abi, walletEVM);
 				const txSwap: TransactionResponse = await routerContract.swapExactTokensForTokens(
