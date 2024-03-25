@@ -16,6 +16,7 @@ import { VanillaSwapRouterV2, DMCChainId, ERC20ABI, WDFI_DST, BTC_DST, DUSD_DST 
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { SellBotTransferDomainService } from './sell-bot.transferDomain.service';
 import { SellBotTransferDomainDFIService } from './sell-bot.transferDomainDFI.service';
+import { SellBotTransferDomainUSDTService } from './sell-bot.transferDomainUSDT.service';
 
 const BestPathValidationStrings: string[] = ['DVM', 'EVM', 'HYBDFI', 'HYBUSDT'];
 
@@ -46,7 +47,8 @@ export class SellBotService {
 		private sellBotBestPathEVMService: SellBotBestPathEVMService,
 		private sellBotBestPathHYBService: SellBotBestPathHYBService,
 		private sellBotTransferDomainService: SellBotTransferDomainService,
-		private sellBotTransferDomainDFIService: SellBotTransferDomainDFIService
+		private sellBotTransferDomainDFIService: SellBotTransferDomainDFIService,
+		private sellBotTransferDomainUSDTService: SellBotTransferDomainUSDTService
 	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
 		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
@@ -123,7 +125,7 @@ export class SellBotService {
 				bestPathDVM.bestPriceResult.priceRatio,
 				bestPathEVM.bestPriceResult,
 				bestPathHYBDFI.bestPriceResult,
-				// bestPathHYBUSDT.bestPriceResult, // DEV, not implemented yet
+				bestPathHYBUSDT.bestPriceResult,
 			];
 
 			const bestPricesForValidationPrice = Math.max(...bestPricesForValidation);
@@ -317,7 +319,7 @@ export class SellBotService {
 				this.logger.log(`Completed Swap over EVM, amount: ${txSwapDFIOut / 10 ** 18} DFI`);
 
 				// TransferDomain and wait
-				await this.sellBotTransferDomainDFIService.transferDomainDFI(txSwapDFIOut8Adj);
+				await this.sellBotTransferDomainDFIService.transferDomain(txSwapDFIOut8Adj);
 
 				// Prepare DVM
 				this.logger.log(
@@ -345,8 +347,94 @@ export class SellBotService {
 
 				// broadcasting Tx
 				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
-				const test = await this.ocean.rawtx.test({ hex: txHex });
-				this.latestTxId = await this.ocean.rawtx.send({ hex: txHex });
+				this.latestTxId = await this.ocean.enforceBroadcasting(txHex);
+				if (this.latestTxId == '') {
+					this.logger.log('EnforceBroadcasting Timeout');
+					return;
+				}
+				this.latestTxIdConfirmed = false;
+
+				// show updated
+				this.logger.log(`Broadcasted and Waiting: ${this.latestTxId}`);
+			}
+
+			// HYBUSDT
+			if (bestPricesForValidationIdx == 3) {
+				// prepare swap
+				const slippage = 0.95;
+				const amountIn = ethers.parseEther(fromTokenAmount.toString());
+				const amountOutMin = ethers.parseEther(
+					(fromTokenAmount * bestPathHYBUSDT.discoverEVM.bestPriceResult * slippage).toString()
+				);
+				const deadline = Date.now() + 120 * 1000;
+				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, VanillaSwapRouterV2.abi, walletEVM);
+
+				// create EVM TD TX
+				this.logger.log(
+					`Preparing Swap on EVM of ${fromTokenAmount} DUSD through ${bestPathHYBUSDT.discoverEVM.bestPricePathNames}`
+				);
+
+				// execute swap and sending
+				const txSwap: TransactionResponse = await routerContract.swapExactTokensForTokens(
+					amountIn,
+					amountOutMin,
+					bestPathHYBUSDT.discoverEVM.bestPricePath,
+					toTokenAddressEVM,
+					deadline,
+					{
+						chainId: DMCChainId,
+						from: walletEVM.address,
+						nonce: await walletEVM.getNonce(),
+						value: ethers.parseEther('0'),
+						gasPrice: ethers.toBigInt('10000000000'),
+						gasLimit: ethers.toBigInt('1000000'),
+					}
+				);
+
+				// Waiting
+				this.logger.log(`Broadcasted and Waiting: ${txSwap.hash} for nonce ${txSwap.nonce}`);
+				const txSwapReceipt: TransactionReceipt = await txSwap.wait();
+
+				// get swapOutAmount
+				const txSwapLastLog = txSwapReceipt.logs.at(-1);
+				const txSwapOut = parseInt(txSwapLastLog.data.slice(-32), 16);
+				const txSwapOut8Adj = Math.floor(txSwapOut / 10 ** 10) / 10 ** 8;
+				this.logger.log(`Completed Swap over EVM, amount: ${txSwapOut / 10 ** 18} USDT`);
+
+				// TransferDomain and wait
+				await this.sellBotTransferDomainUSDTService.transferDomain(txSwapOut8Adj);
+
+				// Prepare DVM
+				this.logger.log(
+					`Preparing Swap on DVM of ${txSwapOut8Adj} USDT through ${bestPathHYBUSDT.discoverDVM.bestPriceResult.poolPairNames}`
+				);
+
+				// Execute Swap DVM
+				const fromScript = await this.wallet.active.getScript();
+				const toScript = fromAddress(toTokenAddressDVM, 'mainnet').script;
+				const maxPriceString = new BigNumber('1').dividedBy(minPrice).toFixed(8);
+				const poolSwapData: PoolSwap = {
+					fromScript: fromScript,
+					fromTokenId: 3,
+					fromAmount: new BigNumber(txSwapOut8Adj),
+					toScript: toScript,
+					toTokenId: parseInt(toToken.id),
+					maxPrice: new BigNumber(maxPriceString),
+				};
+
+				// create SegWit Tx
+				const bestPools = poolPathMapping(bestPathHYBUSDT.discoverDVM.bestPriceResult.poolPairIds);
+				const txSegWit: TransactionSegWit = await this.wallet.active
+					.withTransactionBuilder()
+					.dex.compositeSwap({ pools: bestPools, poolSwap: poolSwapData }, fromScript);
+
+				// broadcasting Tx
+				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
+				this.latestTxId = await this.ocean.enforceBroadcasting(txHex);
+				if (this.latestTxId == '') {
+					this.logger.log('EnforceBroadcasting Timeout');
+					return;
+				}
 				this.latestTxIdConfirmed = false;
 
 				// show updated
@@ -380,7 +468,7 @@ export class SellBotService {
 
 				if (fromTx) {
 					const swappedAmount = parseInt(fromTx.data.slice(2), 16) / 10 ** 18;
-					const avg = (swappedAmount / fromTokenAmount).toFixed(8);
+					const avg = Math.floor((swappedAmount / fromTokenAmount) * 10 ** 10) / 100;
 					this.latestTxIdConfirmed = true;
 
 					// show swap details
@@ -400,7 +488,7 @@ export class SellBotService {
 					const toTx = await this.ocean.address.getAccountHistory(toTokenAddressDVM, fromTx.block.height, fromTx.txn);
 					this.latestTxIdConfirmed = true;
 
-					const avg = (parseFloat(toTx.amounts[0].split('@')[0]) / fromTokenAmount).toFixed(8);
+					const avg = Math.floor((parseFloat(toTx.amounts[0].split('@')[0]) / fromTokenAmount) * 10 ** 10) / 100;
 					this.logger.log(
 						`Completed Swap: ${fromTokenAmount} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
 					);

@@ -6,6 +6,7 @@ import { SellBotBestPathEVMService } from './sell-bot.bestPathEVM.service';
 import { SellBotBestPathHYBService } from './sell-bot.bestPathHYB.service';
 import { SellBotTransferDomainService } from './sell-bot.transferDomain.service';
 import { SellBotTransferDomainDFIService } from './sell-bot.transferDomainDFI.service';
+import { SellBotTransferDomainUSDTService } from './sell-bot.transferDomainUSDT.service';
 
 @Module({
 	providers: [
@@ -15,6 +16,7 @@ import { SellBotTransferDomainDFIService } from './sell-bot.transferDomainDFI.se
 		SellBotBestPathHYBService,
 		SellBotTransferDomainService,
 		SellBotTransferDomainDFIService,
+		SellBotTransferDomainUSDTService,
 	],
 	controllers: [],
 	imports: [DefichainModule],

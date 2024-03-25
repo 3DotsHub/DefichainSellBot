@@ -41,3 +41,4 @@ export const ERC20ABI = _ERC20ABI;
 export const WDFI_DST = new Token(DMCChainId, '0x49febbF9626B2D39aBa11C01d83Ef59b3D56d2A4', 18, 'WDFI', 'Wrapped DFI');
 export const DUSD_DST = new Token(DMCChainId, '0xFf0000000000000000000000000000000000000F', 18, 'DUSD', 'Decentralized US-Dollar');
 export const BTC_DST = new Token(DMCChainId, '0xff00000000000000000000000000000000000002', 18, 'BTC', 'Bitcoin');
+export const USDT_DST = new Token(DMCChainId, '0xff00000000000000000000000000000000000003', 18, 'USDT', 'Tether USD');

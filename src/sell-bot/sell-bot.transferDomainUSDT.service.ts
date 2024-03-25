@@ -8,10 +8,10 @@ import BigNumber from 'bignumber.js';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { Wallet } from 'src/defichain/services/defichain.ocean.wallet.service';
-import { TransferDomainType, TransferDomainV1, BTC_DST, ERC20ABI, DMCChainId } from 'src/defichain/defichain.config';
+import { TransferDomainType, TransferDomainV1, USDT_DST, ERC20ABI, DMCChainId } from 'src/defichain/defichain.config';
 
 @Injectable()
-export class SellBotTransferDomainDFIService {
+export class SellBotTransferDomainUSDTService {
 	private readonly logger = new Logger(this.constructor.name);
 	constructor(private ocean: Ocean, private wallet: Wallet, private evmProvider: EvmProvider) {}
 
@@ -24,10 +24,11 @@ export class SellBotTransferDomainDFIService {
 		const amountAdj8 = Math.floor(amount * 10 ** 8) / 10 ** 8;
 
 		// create EVM TD TX
-		this.logger.log(`Preparing TransferDomain of ${amountAdj8} DFI from EVM to DVM, target: ${dvmAddress}`);
+		this.logger.log(`Preparing TransferDomain of ${amountAdj8} USDT from EVM to DVM, target: ${dvmAddress}`);
 
 		const ITransferDomainV1 = new ethers.Interface(TransferDomainV1.abi);
-		const data = ITransferDomainV1.encodeFunctionData('transfer', [
+		const data = ITransferDomainV1.encodeFunctionData('transferDST20', [
+			USDT_DST.address,
 			evmAddress,
 			TransferDomainV1.address,
 			ethers.parseEther(amountAdj8.toString()),
@@ -53,7 +54,7 @@ export class SellBotTransferDomainDFIService {
 						address: evmScript,
 						domain: TransferDomainType.EVM,
 						amount: {
-							token: 0,
+							token: 3,
 							amount: new BigNumber(amountAdj8),
 						},
 						data: new Uint8Array(Buffer.from(evmSignedTx, 'hex')),
@@ -62,7 +63,7 @@ export class SellBotTransferDomainDFIService {
 						address: dvmScript,
 						domain: TransferDomainType.DVM,
 						amount: {
-							token: 0,
+							token: 3,
 							amount: new BigNumber(amountAdj8),
 						},
 						data: new Uint8Array([]),
@@ -96,7 +97,7 @@ export class SellBotTransferDomainDFIService {
 
 		// waiting
 		const completed = await this.ocean.waitForTx(txid);
-		if (completed) this.logger.log(`Completed TransferDomain of ${amountAdj8} DFI`);
-		else throw new Error('Timeout or Error while TransferDomain with DFI');
+		if (completed) this.logger.log(`Completed TransferDomain of ${amountAdj8} USDT`);
+		else throw new Error('Timeout or Error while TransferDomain with USDT');
 	}
 }
