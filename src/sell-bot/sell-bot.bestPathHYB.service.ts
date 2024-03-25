@@ -3,24 +3,32 @@ import { ethers } from 'ethers';
 import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { VanillaSwapRouterV2 } from 'src/defichain/defichain.config';
-import { SellBotBestPathDVMService } from './sell-bot.bestPathDVM.service';
+import { DiscoverData, SellBotBestPathDVMService } from './sell-bot.bestPathDVM.service';
 
-type PathResult = {
+export type PathResult = {
 	pathNames: string[];
 	path: string[];
 };
 
-type PriceResult = {
+export type PriceResult = {
 	poolPairPath: string[];
 	poolPairNames: string[];
 	priceRatio: number;
 }[];
 
-type DiscoverEVMData = {
+export type DiscoverEVMData = {
 	allPriceResults: PriceResult;
 	bestPricePath: string[];
 	bestPricePathNames: string[];
 	bestPriceResult: number;
+};
+
+export type DiscoverTDData = {
+	bestPricePath: string[];
+	bestPricePathNames: string[];
+	bestPriceResult: number;
+	discoverEVM: DiscoverEVMData;
+	discoverDVM: DiscoverData;
 };
 
 @Injectable()
@@ -50,14 +58,14 @@ export class SellBotBestPathHYBService {
 					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
 				],
 			},
-			{
-				pathNames: ['DUSD', 'JELLO', 'WDFI'],
-				path: [
-					'0xff0000000000000000000000000000000000000f',
-					'0xCCF58CE4F55156536C5f18dE2975E75D7A754CB8',
-					'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
-				],
-			},
+			// {
+			// 	pathNames: ['DUSD', 'JELLO', 'WDFI'],
+			// 	path: [
+			// 		'0xff0000000000000000000000000000000000000f',
+			// 		'0xCCF58CE4F55156536C5f18dE2975E75D7A754CB8',
+			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+			// 	],
+			// },
 			{
 				pathNames: ['DUSD', 'MUSD', 'WDFI'],
 				path: [
@@ -171,7 +179,7 @@ export class SellBotBestPathHYBService {
 		};
 	}
 
-	async discoverDFI(amount?: string) {
+	async discoverDFI(amount?: string): Promise<DiscoverTDData> {
 		const discover = await this.discover(amount, this.allPathsToDFI());
 		const discoverDFIDVM = await this.sellBotBestPathDVMService.discover('0', '2');
 		const bestPricePath = discover.bestPricePath.concat(['TransferDomain@DFI'].concat(discoverDFIDVM.bestPriceResult.poolPairIds));
@@ -189,7 +197,7 @@ export class SellBotBestPathHYBService {
 		};
 	}
 
-	async discoverUSDT(amount?: string) {
+	async discoverUSDT(amount?: string): Promise<DiscoverTDData> {
 		const discover = await this.discover(amount, this.allPathsToUSDT());
 		const discoverUSDTDVM = await this.sellBotBestPathDVMService.discover('3', '2');
 		const bestPricePath = discover.bestPricePath.concat(['TransferDomain@USDT'].concat(discoverUSDTDVM.bestPriceResult.poolPairIds));
@@ -205,5 +213,17 @@ export class SellBotBestPathHYBService {
 			discoverEVM: discover,
 			discoverDVM: discoverUSDTDVM,
 		};
+	}
+
+	toDisplay(data: DiscoverTDData) {
+		const showSats = (p: number) => Math.floor(p * 10 ** 10) / 100;
+		data.discoverEVM.allPriceResults.map((r) =>
+			this.logger.log(
+				`${r.poolPairNames.join(' > ')} > TD (${r.priceRatio}) > ${data.discoverDVM.bestPriceResult.poolPairNames.join(
+					' > '
+				)} >>> ${showSats(r.priceRatio * data.discoverDVM.bestPriceResult.priceRatio)} Sats <<<`
+			)
+		);
+		console.log('');
 	}
 }

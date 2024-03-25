@@ -4,7 +4,7 @@ import { TokenIdentifier } from '@defichain/whale-api-client/dist/api/poolpairs'
 import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 
-type PriceResult = {
+export type PriceResult = {
 	poolPairIds: string[];
 	poolPairNames: string[];
 	priceRatio: number;
@@ -12,7 +12,7 @@ type PriceResult = {
 	comFeePct: number;
 };
 
-type DiscoverData = {
+export type DiscoverData = {
 	fromToken: TokenIdentifier;
 	toToken: TokenIdentifier;
 	allPriceResults: PriceResult[];
@@ -90,5 +90,11 @@ export class SellBotBestPathDVMService {
 			allPriceResults,
 			bestPriceResult,
 		};
+	}
+
+	toDisplay(data: DiscoverData) {
+		const showSats = (p: number) => Math.floor(p * 10 ** 10) / 100;
+		data.allPriceResults.map((r) => this.logger.log(`${r.poolPairNames.join(' > ')} >>> ${showSats(r.priceRatio)} Sats <<<`));
+		console.log('');
 	}
 }
