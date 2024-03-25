@@ -15,6 +15,7 @@ import { ethers, TransactionResponse, TransactionReceipt } from 'ethers';
 import { VanillaSwapRouterV2, DMCChainId, ERC20ABI, WDFI_DST, BTC_DST, DUSD_DST } from 'src/defichain/defichain.config';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { SellBotTransferDomainService } from './sell-bot.transferDomain.service';
+import { SellBotTransferDomainDFIService } from './sell-bot.transferDomainDFI.service';
 
 const BestPathValidationStrings: string[] = ['DVM', 'EVM', 'HYBDFI', 'HYBUSDT'];
 
@@ -26,7 +27,7 @@ const toTokenName: string = process.env.TO_TOKEN_NAME;
 const toTokenAddressDVM: string = process.env.TO_TOKEN_ADDRESS_DVM;
 const toTokenAddressEVM: string = process.env.TO_TOKEN_ADDRESS_EVM;
 const minPrice: BigNumber = new BigNumber(process.env.MIN_PRICE);
-const INTERVALSEC: number = parseInt(process.env.INTERVALSEC || '1200');
+const INTERVALSEC: number = parseInt(process.env.INTERVALSEC || '1200'); // default: 1200sec == 20min
 
 @Injectable()
 export class SellBotService {
@@ -44,12 +45,12 @@ export class SellBotService {
 		private sellBotBestPathDVMService: SellBotBestPathDVMService,
 		private sellBotBestPathEVMService: SellBotBestPathEVMService,
 		private sellBotBestPathHYBService: SellBotBestPathHYBService,
-		private sellBotTransferDomainService: SellBotTransferDomainService
+		private sellBotTransferDomainService: SellBotTransferDomainService,
+		private sellBotTransferDomainDFIService: SellBotTransferDomainDFIService
 	) {
 		if (!INTERVALSEC) throw new Error('Missing INTERVALSEC in .env, see .env.example');
-		// setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
-		// setTimeout(() => this.sellAction(), this.restartPolicyDelay);
-		setTimeout(() => this.sellAction(), 100);
+		setTimeout(() => this.showAddr(), this.restartPolicyDelay / 2);
+		setTimeout(() => this.sellAction(), this.restartPolicyDelay);
 	}
 
 	// show bot address
@@ -63,7 +64,7 @@ export class SellBotService {
 	}
 
 	// @Cron(cronCommand)
-	// @Interval(INTERVALSEC * 1000)
+	@Interval(INTERVALSEC * 1000)
 	async sellAction() {
 		if (!fromTokenName || !fromTokenAmount || !toTokenName || !toTokenAddressDVM || !toTokenAddressEVM || !minPrice)
 			throw new Error('Missing params, see .env.example');
@@ -91,13 +92,17 @@ export class SellBotService {
 			// if (!fromToken || parseFloat(fromToken.amount) < fromTokenAmount) throw 'From token amount below threshold';
 			if (!toToken) throw 'To token not found';
 
+			// poolPath mapping for DVM
+			function poolPathMapping(ids: string[]): PoolId[] {
+				return ids.map((p) => {
+					return {
+						id: parseInt(p),
+					};
+				});
+			}
+
 			// DVM
 			const bestPathDVM = await this.sellBotBestPathDVMService.discover(fromToken.id, toToken.id);
-			const bestPools: PoolId[] = bestPathDVM.bestPriceResult.poolPairIds.map((p) => {
-				return {
-					id: parseInt(p),
-				};
-			});
 
 			// EVM
 			const bestPathEVM = await this.sellBotBestPathEVMService.discover(fromTokenAmount.toString());
@@ -107,36 +112,18 @@ export class SellBotService {
 			const bestPathHYBUSDT = await this.sellBotBestPathHYBService.discoverUSDT(fromTokenAmount.toString());
 
 			// Logging
-			const showSats = (p: number) => Math.floor(p * 10 ** 10) / 100;
-			bestPathDVM.allPriceResults.map((r) => console.log('DVM >>', r.poolPairNames.join(' '), showSats(r.priceRatio)));
-			bestPathEVM.allPriceResults.map((r) => console.log('EVM >>', r.poolPairNames.join(' '), showSats(r.priceRatio)));
-			bestPathHYBDFI.discoverEVM.allPriceResults.map((r) =>
-				console.log(
-					'HYBDFI >>',
-					r.poolPairNames.join(' '),
-					r.priceRatio,
-					'TransferDomain',
-					bestPathHYBDFI.discoverDVM.bestPriceResult.poolPairNames.join(' '),
-					showSats(bestPathHYBDFI.discoverDVM.bestPriceResult.priceRatio * r.priceRatio)
-				)
-			);
-			bestPathHYBUSDT.discoverEVM.allPriceResults.map((r) =>
-				console.log(
-					'HYBUSDT >>',
-					r.poolPairNames.join(' '),
-					r.priceRatio,
-					'TransferDomain',
-					bestPathHYBUSDT.discoverDVM.bestPriceResult.poolPairNames.join(' '),
-					showSats(bestPathHYBUSDT.discoverDVM.bestPriceResult.priceRatio * r.priceRatio)
-				)
-			);
+			console.log('');
+			this.sellBotBestPathDVMService.toDisplay(bestPathDVM);
+			this.sellBotBestPathEVMService.toDisplay(bestPathEVM);
+			this.sellBotBestPathHYBService.toDisplay(bestPathHYBDFI);
+			this.sellBotBestPathHYBService.toDisplay(bestPathHYBUSDT);
 
 			// Best Price Validation
 			const bestPricesForValidation = [
 				bestPathDVM.bestPriceResult.priceRatio,
 				bestPathEVM.bestPriceResult,
 				bestPathHYBDFI.bestPriceResult,
-				bestPathHYBUSDT.bestPriceResult,
+				// bestPathHYBUSDT.bestPriceResult, // DEV, not implemented yet
 			];
 
 			const bestPricesForValidationPrice = Math.max(...bestPricesForValidation);
@@ -144,17 +131,27 @@ export class SellBotService {
 
 			// Logging all best results
 			const currencyStr = `${toTokenName}/${fromTokenName}`;
+			const showSats = (p: number) => Math.floor(p * 10 ** 10) / 100;
 			this.logger.log(
-				`DVM: ${bestPathDVM.bestPriceResult.poolPairNames} --> ${bestPathDVM.bestPriceResult.priceRatio.toFixed(8)} ${currencyStr}`
+				`DVM: ${bestPathDVM.bestPriceResult.poolPairNames.join(' > ')} --> ${showSats(
+					bestPathDVM.bestPriceResult.priceRatio
+				)} ${currencyStr}`
 			);
-			this.logger.log(`EVM: ${bestPathEVM.bestPricePathNames} --> ${bestPathEVM.bestPriceResult} ${currencyStr}`);
-			this.logger.log(`HYBDFI: ${bestPathHYBDFI.bestPricePathNames} --> ${bestPathHYBDFI.bestPriceResult} ${currencyStr}`);
-			this.logger.log(`HYBUSDT: ${bestPathHYBUSDT.bestPricePathNames} --> ${bestPathHYBUSDT.bestPriceResult} ${currencyStr}`);
 			this.logger.log(
-				`>>> ${BestPathValidationStrings[bestPricesForValidationIdx]}: --> ${bestPricesForValidationPrice} ${currencyStr} <<<`
+				`EVM: ${bestPathEVM.bestPricePathNames.join(' > ')} --> ${showSats(bestPathEVM.bestPriceResult)} ${currencyStr}`
 			);
-
-			return;
+			this.logger.log(
+				`HYBDFI: ${bestPathHYBDFI.bestPricePathNames.join(' > ')} --> ${showSats(bestPathHYBDFI.bestPriceResult)} ${currencyStr}`
+			);
+			this.logger.log(
+				`HYBUSDT: ${bestPathHYBUSDT.bestPricePathNames.join(' > ')} --> ${showSats(bestPathHYBUSDT.bestPriceResult)} ${currencyStr}`
+			);
+			this.logger.log(
+				`>>>>> ${BestPathValidationStrings[bestPricesForValidationIdx]}: --> ${showSats(
+					bestPricesForValidationPrice
+				)} ${currencyStr} <<<<<`
+			);
+			console.log('');
 
 			// check minPrice met
 			if (bestPricesForValidationPrice < parseFloat(minPrice.toFixed(8))) {
@@ -208,7 +205,8 @@ export class SellBotService {
 
 			// DVM
 			if (bestPricesForValidationIdx == 0) {
-				return;
+				// Preparing Swap
+				this.logger.log(`Preparing Swap on DVM of ${fromTokenAmount} DUSD through ${bestPathDVM.bestPriceResult.poolPairNames}`);
 
 				const fromScript = await this.wallet.active.getScript();
 				const toScript = fromAddress(toTokenAddressDVM, 'mainnet').script;
@@ -223,23 +221,24 @@ export class SellBotService {
 				};
 
 				// create SegWit Tx
+				const bestPools = poolPathMapping(bestPathDVM.bestPriceResult.poolPairIds);
 				const txSegWit: TransactionSegWit = await this.wallet.active
 					.withTransactionBuilder()
 					.dex.compositeSwap({ pools: bestPools, poolSwap: poolSwapData }, fromScript);
 
 				// broadcasting Tx
 				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
-				const test = await this.ocean.rawtx.test({ hex: txHex });
 				this.latestTxId = await this.ocean.rawtx.send({ hex: txHex });
 				this.latestTxIdConfirmed = false;
 
-				// show updated
-				this.logger.log(`Broadcasted: ${this.latestTxId}`);
+				// logging
+				this.logger.log(`Broadcasted and Waiting: ${this.latestTxId}`);
 			}
 
 			// EVM
 			if (bestPricesForValidationIdx == 1) {
-				return;
+				// Preparing Swap
+				this.logger.log(`Preparing Swap on EVM of ${fromTokenAmount} DUSD through ${bestPathEVM.bestPricePathNames}`);
 
 				// swap
 				const amountIn = ethers.parseEther(fromTokenAmount.toString());
@@ -266,7 +265,7 @@ export class SellBotService {
 				);
 
 				// show update
-				this.logger.log(`Broadcasted: ${txSwap.hash} for nonce ${txSwap.nonce}`);
+				this.logger.log(`Broadcasted and Waiting: ${txSwap.hash} for nonce ${txSwap.nonce}`);
 
 				// wait for tx
 				const txSwapReceipt: TransactionReceipt = await txSwap.wait();
@@ -285,45 +284,73 @@ export class SellBotService {
 				const deadline = Date.now() + 120 * 1000;
 				const routerContract = new ethers.Contract(VanillaSwapRouterV2.address, VanillaSwapRouterV2.abi, walletEVM);
 
-				// // execute swap
-				// const txSwap: TransactionResponse = await routerContract.swapExactTokensForETH(
-				// 	amountIn,
-				// 	amountOutMin,
-				// 	bestPathHYBDFI.discoverEVM.bestPricePath,
-				// 	toTokenAddressEVM,
-				// 	deadline,
-				// 	{
-				// 		chainId: DMCChainId,
-				// 		from: walletEVM.address,
-				// 		nonce: await walletEVM.getNonce(),
-				// 		value: ethers.parseEther('0'),
-				// 		gasPrice: ethers.toBigInt('10000000000'),
-				// 		gasLimit: ethers.toBigInt('1000000'),
-				// 	}
-				// );
+				// create EVM TD TX
+				this.logger.log(
+					`Preparing Swap on EVM of ${fromTokenAmount} DUSD through ${bestPathHYBDFI.discoverEVM.bestPricePathNames}`
+				);
 
-				// // show swap tx update
-				// this.logger.log(`Broadcasted: ${txSwap.hash} for nonce ${txSwap.nonce}`);
+				// execute swap and sending
+				const txSwap: TransactionResponse = await routerContract.swapExactTokensForETH(
+					amountIn,
+					amountOutMin,
+					bestPathHYBDFI.discoverEVM.bestPricePath,
+					toTokenAddressEVM,
+					deadline,
+					{
+						chainId: DMCChainId,
+						from: walletEVM.address,
+						nonce: await walletEVM.getNonce(),
+						value: ethers.parseEther('0'),
+						gasPrice: ethers.toBigInt('10000000000'),
+						gasLimit: ethers.toBigInt('1000000'),
+					}
+				);
 
-				// // wait for tx confirmation
-				// const txSwapReceipt: TransactionReceipt = await txSwap.wait();
-				const txid = '0x14a57af6bc957f1806833578129d9f1dadc5548203da3271f62f0ed42e08da6d';
-				const txSwapReceipt = await this.evmProvider.getTransactionReceipt(txid);
+				// Waiting
+				this.logger.log(`Broadcasted and Waiting: ${txSwap.hash} for nonce ${txSwap.nonce}`);
+				const txSwapReceipt: TransactionReceipt = await txSwap.wait();
 
 				// get swapOutAmount
 				const txSwapLastLog = txSwapReceipt.logs.at(-1);
 				const txSwapDFIOut = parseInt(txSwapLastLog.data, 16);
-				this.logger.log(`HYBDFI swapped over EVM, amount: ${txSwapDFIOut / 10 ** 18}`);
+				const txSwapDFIOut8Adj = Math.floor(txSwapDFIOut / 10 ** 10) / 10 ** 8;
+				this.logger.log(`Completed Swap over EVM, amount: ${txSwapDFIOut / 10 ** 18} DFI`);
 
-				// TransferDomain
+				// TransferDomain and wait
+				await this.sellBotTransferDomainDFIService.transferDomainDFI(txSwapDFIOut8Adj);
 
-				// Prepare Swap DVM
+				// Prepare DVM
+				this.logger.log(
+					`Preparing Swap on DVM of ${txSwapDFIOut8Adj} DFI through ${bestPathHYBDFI.discoverDVM.bestPriceResult.poolPairNames}`
+				);
 
 				// Execute Swap DVM
+				const fromScript = await this.wallet.active.getScript();
+				const toScript = fromAddress(toTokenAddressDVM, 'mainnet').script;
+				const maxPriceString = new BigNumber('1').dividedBy(minPrice).toFixed(8);
+				const poolSwapData: PoolSwap = {
+					fromScript: fromScript,
+					fromTokenId: 0,
+					fromAmount: new BigNumber(txSwapDFIOut8Adj),
+					toScript: toScript,
+					toTokenId: parseInt(toToken.id),
+					maxPrice: new BigNumber(maxPriceString),
+				};
 
-				// update states
-				// this.latestTxIdConfirmed = false;
-				// this.latestTxId = 'FILL ME...';
+				// create SegWit Tx
+				const bestPools = poolPathMapping(bestPathHYBDFI.discoverDVM.bestPriceResult.poolPairIds);
+				const txSegWit: TransactionSegWit = await this.wallet.active
+					.withTransactionBuilder()
+					.dex.compositeSwap({ pools: bestPools, poolSwap: poolSwapData }, fromScript);
+
+				// broadcasting Tx
+				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
+				const test = await this.ocean.rawtx.test({ hex: txHex });
+				this.latestTxId = await this.ocean.rawtx.send({ hex: txHex });
+				this.latestTxIdConfirmed = false;
+
+				// show updated
+				this.logger.log(`Broadcasted and Waiting: ${this.latestTxId}`);
 			}
 		} catch (error) {
 			if (error != 'SyntaxError: Unexpected token < in JSON at position 0') this.logger.error(error);
@@ -358,7 +385,7 @@ export class SellBotService {
 
 					// show swap details
 					this.logger.log(
-						`Swapped: ${fromTokenAmount} to ${swappedAmount} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.blockNumber} txn ${fromTx.index}\n`
+						`Completed Swap: ${fromTokenAmount} to ${swappedAmount} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.blockNumber} txn ${fromTx.index}\n`
 					);
 				}
 			} else {
@@ -373,9 +400,9 @@ export class SellBotService {
 					const toTx = await this.ocean.address.getAccountHistory(toTokenAddressDVM, fromTx.block.height, fromTx.txn);
 					this.latestTxIdConfirmed = true;
 
-					const avg = (-parseFloat(toTx.amounts[0].split('@')[0]) / parseFloat(fromTx.amounts[0].split('@')[0])).toFixed(8);
+					const avg = (parseFloat(toTx.amounts[0].split('@')[0]) / fromTokenAmount).toFixed(8);
 					this.logger.log(
-						`Swapped: ${fromTx.amounts[0]} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
+						`Completed Swap: ${fromTokenAmount} to ${toTx.amounts[0]} for avg. ${avg} ${toTokenName}/${fromTokenName} at block ${fromTx.block.height} txn ${fromTx.txn}\n`
 					);
 				}
 			}
