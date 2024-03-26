@@ -348,10 +348,7 @@ export class SellBotService {
 				// broadcasting Tx
 				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
 				this.latestTxId = await this.ocean.enforceBroadcasting(txHex);
-				if (this.latestTxId == '') {
-					this.logger.log('EnforceBroadcasting Timeout');
-					return;
-				}
+				if (this.latestTxId == '') throw 'EnforceBroadcasting Timeout';
 				this.latestTxIdConfirmed = false;
 
 				// show updated
@@ -431,10 +428,7 @@ export class SellBotService {
 				// broadcasting Tx
 				const txHex: string = new CTransactionSegWit(txSegWit).toHex();
 				this.latestTxId = await this.ocean.enforceBroadcasting(txHex);
-				if (this.latestTxId == '') {
-					this.logger.log('EnforceBroadcasting Timeout');
-					return;
-				}
+				if (this.latestTxId == '') throw 'EnforceBroadcasting Timeout';
 				this.latestTxIdConfirmed = false;
 
 				// show updated

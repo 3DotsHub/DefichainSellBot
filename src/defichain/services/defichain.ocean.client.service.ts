@@ -4,7 +4,7 @@ import { selectedNetwork, oceanUrl } from '../defichain.config';
 
 @Injectable()
 export class Ocean extends WhaleApiClient {
-	private readonly enforceBroadcastingTimeoutThreshold: number = 5 * 60; // 5min in sec
+	private readonly enforceBroadcastingTimeoutThreshold: number = 10 * 60; // 5min in sec
 	private readonly waitTimeoutThreshold: number = 10 * 60; // 10min in sec
 	private readonly waitInterval: number = 10; // in sec
 	public readonly network: string;
@@ -54,8 +54,8 @@ export class Ocean extends WhaleApiClient {
 	}
 
 	async enforceBroadcasting(data: string): Promise<string> {
-		const refTime: Date = new Date();
 		return new Promise((resolve) => {
+			const refTime: Date = new Date();
 			let running: boolean = false;
 			let intervalId: NodeJS.Timeout;
 
