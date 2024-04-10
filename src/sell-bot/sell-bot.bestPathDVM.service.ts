@@ -4,7 +4,7 @@ import { TokenIdentifier } from '@defichain/whale-api-client/dist/api/poolpairs'
 import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 
-type PriceResult = {
+export type PriceResult = {
 	poolPairIds: string[];
 	poolPairNames: string[];
 	priceRatio: number;
@@ -12,7 +12,7 @@ type PriceResult = {
 	comFeePct: number;
 };
 
-type DiscoverData = {
+export type DiscoverData = {
 	fromToken: TokenIdentifier;
 	toToken: TokenIdentifier;
 	allPriceResults: PriceResult[];
@@ -25,13 +25,13 @@ export class SellBotBestPathDVMService {
 
 	constructor(private ocean: Ocean) {}
 
-	async dicover(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
+	async discover(fromTokenId: string, toTokenId: string): Promise<DiscoverData> {
 		const { fromToken, toToken, paths } = await this.ocean.poolpairs.getAllPaths(fromTokenId, toTokenId);
 
 		let bestPriceResult: PriceResult;
 		const allPriceResults: PriceResult[] = paths.map((path) => {
+			const poolPairNames: string[] = [fromToken.symbol];
 			const poolPairIds: string[] = [];
-			const poolPairNames: string[] = [];
 			let priceRatio: number = 1;
 			let dexFeePct: number = 0;
 			let comFeePct: number = 0;
@@ -39,7 +39,6 @@ export class SellBotBestPathDVMService {
 
 			for (let p of path) {
 				poolPairIds.push(p.poolPairId);
-				poolPairNames.push(p.symbol);
 
 				// make ref entry
 				const refEntryAB = p.tokenB.id === refToken.id;
@@ -61,6 +60,7 @@ export class SellBotBestPathDVMService {
 
 				// adj refToken
 				refToken = refEntryAB ? p.tokenA : p.tokenB;
+				poolPairNames.push(refToken.symbol);
 			}
 
 			// limit priceRatio to 8 digits float
@@ -90,5 +90,11 @@ export class SellBotBestPathDVMService {
 			allPriceResults,
 			bestPriceResult,
 		};
+	}
+
+	toDisplay(data: DiscoverData) {
+		const showSats = (p: number) => Math.floor(p * 10 ** 10) / 100;
+		data.allPriceResults.map((r) => this.logger.log(`${r.poolPairNames.join(' > ')} >>> ${showSats(r.priceRatio)} Sats <<<`));
+		console.log('');
 	}
 }

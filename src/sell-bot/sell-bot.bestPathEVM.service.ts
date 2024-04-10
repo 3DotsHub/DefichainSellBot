@@ -4,7 +4,14 @@ import { Ocean } from 'src/defichain/services/defichain.ocean.client.service';
 import { EvmProvider } from 'src/defichain/services/defichain.evm.provider.service';
 import { VanillaSwapRouterV2 } from 'src/defichain/defichain.config';
 
-type DiscoverEVMData = {
+export type PriceResult = {
+	poolPairPath: string[];
+	poolPairNames: string[];
+	priceRatio: number;
+}[];
+
+export type DiscoverEVMData = {
+	allPriceResults: PriceResult;
 	bestPricePath: string[];
 	bestPricePathNames: string[];
 	bestPriceResult: number;
@@ -34,6 +41,7 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
+
 			{
 				pathNames: ['DUSD', 'HOSP', 'WDFI', 'BTC'],
 				path: [
@@ -43,6 +51,15 @@ export class SellBotBestPathEVMService {
 					'0xff00000000000000000000000000000000000002',
 				],
 			},
+			// {
+			// 	pathNames: ['DUSD', 'JELLO', 'WDFI', 'BTC'],
+			// 	path: [
+			// 		'0xff0000000000000000000000000000000000000f',
+			// 		'0xccf58ce4f55156536c5f18de2975e75d7a754cb8',
+			// 		'0x49febbf9626b2d39aba11c01d83ef59b3d56d2a4',
+			// 		'0xff00000000000000000000000000000000000002',
+			// 	],
+			// },
 			{
 				pathNames: ['DUSD', 'JELLO', 'WDFI', 'BTC'],
 				path: [
@@ -91,7 +108,7 @@ export class SellBotBestPathEVMService {
 		return ethers.formatUnits(adj.toString(), 18);
 	}
 
-	async dicover(amount?: string, pathArray?: string[]): Promise<DiscoverEVMData> {
+	async discover(amount?: string, pathArray?: string[]): Promise<DiscoverEVMData> {
 		const priceQuotes = [];
 		const paths = this.allPaths();
 		let bestIdx: number;
@@ -102,10 +119,25 @@ export class SellBotBestPathEVMService {
 			else if (priceQuotes.at(-1) > priceQuotes[bestIdx]) bestIdx = priceQuotes.length - 1;
 		}
 
+		const allPriceResults: PriceResult = paths.map((p, idx) => {
+			return {
+				poolPairPath: p.path,
+				poolPairNames: p.pathNames,
+				priceRatio: parseFloat(priceQuotes[idx]),
+			};
+		});
+
 		return {
+			allPriceResults,
 			bestPricePath: paths[bestIdx].path,
 			bestPricePathNames: paths[bestIdx].pathNames,
 			bestPriceResult: parseFloat(priceQuotes[bestIdx]),
 		};
+	}
+
+	toDisplay(data: DiscoverEVMData) {
+		const showSats = (p: number) => Math.floor(p * 10 ** 10) / 100;
+		data.allPriceResults.map((r) => this.logger.log(`${r.poolPairNames.join(' > ')} >>> ${showSats(r.priceRatio)} Sats <<<`));
+		console.log('');
 	}
 }
