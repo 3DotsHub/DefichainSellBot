@@ -89,7 +89,7 @@ export class SellBotService {
 			if (!utxo || utxo.length === 0) throw 'No UTXOs available.';
 			if (!tokens || tokens.length === 0) throw 'No TOKENs available';
 
-			const fromToken = tokens.find((tkn) => tkn.symbol === fromTokenName);
+			const fromToken = availableTokens.find((tkn) => tkn.symbol === fromTokenName);
 			const toToken = availableTokens.find((tkn) => tkn.symbol === toTokenName);
 			// if (!fromToken || parseFloat(fromToken.amount) < fromTokenAmount) throw 'From token amount below threshold';
 			if (!toToken) throw 'To token not found';
